@@ -11,10 +11,12 @@ pub mod opcode;
 
 fn main() {
     let mut chunk = Chunk::new();
-    chunk.write(OP_RETURN);
-    let constant = chunk.add_constant(1.2);
-    chunk.write(OP_CONSTANT);
-    chunk.write(constant as u8);
+    chunk.write(OP_RETURN, 123);
+
+    for i in 0..258 {
+        chunk.write_constant(i as f64, 123);
+    }
+
     disassemble_chunk(&chunk, "test chunk");
     chunk.reset();
     exit(0)
