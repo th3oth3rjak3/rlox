@@ -16,7 +16,7 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
 
 /// disassemble_instruction prints the offset for the current instruction
 /// and the related visual representation for each instruction.
-fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
+pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
     print!("{:04} ", offset);
 
     if offset > 0 && chunk.get_line(offset) == chunk.get_line(offset - 1) {
@@ -31,6 +31,12 @@ fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
         OP_CONSTANT => return constant_instruction("OP_CONSTANT", chunk, offset),
         OP_CONSTANT_LONG => return constant_long_instruction("OP_CONSTANT_LONG", chunk, offset),
         OP_RETURN => return simple_instruction("OP_RETURN", offset),
+        OP_NEGATE => return simple_instruction("OP_NEGATE", offset),
+        OP_ADD => return simple_instruction("OP_ADD", offset),
+        OP_SUBTRACT => return simple_instruction("OP_SUBTRACT", offset),
+        OP_MULTIPLY => return simple_instruction("OP_MULTIPLY", offset),
+        OP_DIVIDE => return simple_instruction("OP_DIVIDE", offset),
+
         _ => {
             println!("Unknown opcode {}", instruction);
             return offset + 1;
