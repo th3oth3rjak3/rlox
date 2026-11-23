@@ -90,5 +90,8 @@ pub fn print_value(value: Value) {
         Value::Nil => print!("nil"),
         Value::Bool(b) => print!("{b}"),
         Value::Number(n) => print!("{n}"),
+        // TODO: eventually, pass the vm heap in here in
+        // order to actually write out the real values like strings.
+        Value::Obj(id) => print!("OBJECT({id})"),
     }
 }

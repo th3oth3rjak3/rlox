@@ -1,9 +1,12 @@
+use crate::objects::ObjId;
+
 /// Value represents a lox runtime value.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Value {
     Nil,
     Number(f64),
     Bool(bool),
+    Obj(ObjId),
 }
 
 impl Value {
@@ -14,7 +17,7 @@ impl Value {
         match self {
             Self::Nil => true,
             Self::Bool(b) => !b,
-            Self::Number(_) => false,
+            _ => false,
         }
     }
 
@@ -48,6 +51,22 @@ impl Value {
         match self {
             Self::Number(n) => *n,
             _ => unreachable!("expected number"),
+        }
+    }
+
+    /// is_obj checks to see if the current
+    /// value is an object type.
+    pub fn is_obj(&self) -> bool {
+        matches!(self, Value::Obj(_))
+    }
+
+    /// as_obj produces the object ID handle
+    /// when the value is an object. This function
+    /// panics when the value is not an object.
+    pub fn as_obj(&self) -> ObjId {
+        match self {
+            Self::Obj(id) => *id,
+            _ => unreachable!("expected object"),
         }
     }
 }

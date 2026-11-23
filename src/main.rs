@@ -6,6 +6,8 @@ pub mod chunk;
 pub mod common;
 pub mod compiler;
 pub mod debug;
+pub mod heap;
+pub mod objects;
 pub mod opcode;
 pub mod precedence;
 pub mod scanner;
