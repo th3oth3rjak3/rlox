@@ -36,7 +36,6 @@ impl HeapObj {
 
 pub enum ObjKind {
     String(String),
-    // Later chapters just add new variants here:
     // Function(ObjFunction),
     // Closure(ObjClosure),
     // Class(ObjClass),

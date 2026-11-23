@@ -2,7 +2,8 @@ use crate::{
     chunk::Chunk,
     common::Value,
     compiler::Compiler,
-    debug::{self, print_value},
+    debug::{Disassembler, print_value},
+    heap::Heap,
     opcode::*,
     stack::ValueStack,
     token::TokenKind,
@@ -22,6 +23,7 @@ pub enum InterpretResult {
 pub struct VM {
     ip: usize,
     stack: ValueStack,
+    heap: Heap,
 }
 
 impl Default for VM {
@@ -36,6 +38,7 @@ impl VM {
         Self {
             ip: 0,
             stack: ValueStack::new(),
+            heap: Heap::new(),
         }
     }
 
@@ -62,8 +65,8 @@ impl VM {
         loop {
             cfg_select! {
                 debug_assertions => {
-                    self.stack.print();
-                    debug::disassemble_instruction(chunk, self.ip);
+                    self.stack.print(&self.heap);
+                    Disassembler::new(chunk, &self.heap).disassemble_instruction(self.ip);
                 }
                 _ => { /* NO-OP */ }
             }
@@ -79,7 +82,7 @@ impl VM {
                     self.push(constant, chunk)?;
                 }
                 OP_RETURN => {
-                    print_value(self.stack.pop());
+                    print_value(self.stack.pop(), &self.heap);
                     println!();
                     return Ok(());
                 }
@@ -307,7 +310,7 @@ impl VM {
 
     /// compile takes the source code and produces a new chunk to run.
     fn compile(&mut self, source: &str) -> Option<Chunk> {
-        let mut compiler = Compiler::new(source);
+        let mut compiler = Compiler::new(source, &mut self.heap);
         compiler.advance();
         compiler.expression();
         compiler.consume(TokenKind::EOF, "Expect end of expression.");

@@ -1,3 +1,5 @@
+/// Precedence is the order in which parsing must be
+/// done to produce the correct expression evaluation.
 #[repr(u8)]
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Precedence {
@@ -15,6 +17,8 @@ pub enum Precedence {
 }
 
 impl Precedence {
+    /// next returns the precedence level that is one higher
+    /// than current.
     pub fn next(self) -> Self {
         match self {
             Precedence::None => Precedence::Assignment,

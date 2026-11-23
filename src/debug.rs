@@ -1,97 +1,116 @@
 use crate::chunk::Chunk;
 use crate::common::Value;
+use crate::heap::Heap;
 use crate::opcode::*;
 
-/// disassemble_chunk prints the associated instructions and
-/// their offsets in the code for debugging purposes.
-pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
-    println!("== {name} ==");
-
-    let mut offset: usize = 0;
-
-    while offset < chunk.code.len() {
-        offset = disassemble_instruction(chunk, offset);
-    }
+/// Disassembler formats bytecode instructions and their operands
+/// for debugging and diagnostic output.
+pub struct Disassembler<'a> {
+    chunk: &'a Chunk,
+    heap: &'a Heap,
 }
 
-/// disassemble_instruction prints the offset for the current instruction
-/// and the related visual representation for each instruction.
-pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
-    print!("{:04} ", offset);
-
-    if offset > 0 && chunk.get_line(offset) == chunk.get_line(offset - 1) {
-        print!("   | ");
-    } else {
-        print!("{:4} ", chunk.get_line(offset));
+impl<'a> Disassembler<'a> {
+    /// new creates a new Disassembler for the given chunk and heap.
+    pub fn new(chunk: &'a Chunk, heap: &'a Heap) -> Self {
+        Self { chunk, heap }
     }
 
-    let instruction = chunk.code[offset];
+    /// disassemble_chunk prints all instructions and their offsets
+    /// in the chunk under the given header name.
+    pub fn disassemble_chunk(&self, name: &str) {
+        println!("== {name} ==");
 
-    match instruction {
-        OP_CONSTANT => constant_instruction("OP_CONSTANT", chunk, offset),
-        OP_CONSTANT_LONG => constant_long_instruction("OP_CONSTANT_LONG", chunk, offset),
-        OP_RETURN => simple_instruction("OP_RETURN", offset),
-        OP_NEGATE => simple_instruction("OP_NEGATE", offset),
-        OP_ADD => simple_instruction("OP_ADD", offset),
-        OP_SUBTRACT => simple_instruction("OP_SUBTRACT", offset),
-        OP_MULTIPLY => simple_instruction("OP_MULTIPLY", offset),
-        OP_DIVIDE => simple_instruction("OP_DIVIDE", offset),
-        OP_NIL => simple_instruction("OP_NIL", offset),
-        OP_TRUE => simple_instruction("OP_TRUE", offset),
-        OP_FALSE => simple_instruction("OP_FALSE", offset),
-        OP_NOT => simple_instruction("OP_NOT", offset),
-        OP_EQUAL => simple_instruction("OP_EQUAL", offset),
-        OP_NOT_EQUAL => simple_instruction("OP_NOT_EQUAL", offset),
-        OP_LESS => simple_instruction("OP_LESS", offset),
-        OP_LESS_EQUAL => simple_instruction("OP_LESS_EQUAL", offset),
-        OP_GREATER => simple_instruction("OP_GREATER", offset),
-        OP_GREATER_EQUAL => simple_instruction("OP_GREATER_EQUAL", offset),
-        _ => {
-            println!("Unknown opcode {}", instruction);
-            offset + 1
+        let mut offset: usize = 0;
+
+        while offset < self.chunk.code.len() {
+            offset = self.disassemble_instruction(offset);
         }
     }
-}
 
-/// simple_instruction prints the name of a simple instruction
-/// and increments the offset.
-fn simple_instruction(name: &str, offset: usize) -> usize {
-    println!("{name}");
-    offset + 1
-}
+    /// disassemble_instruction prints the offset, line number, and
+    /// formatted representation for the instruction at offset.
+    pub fn disassemble_instruction(&self, offset: usize) -> usize {
+        print!("{:04} ", offset);
 
-/// constant_instruction prints the constant index position and its value.
-fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
-    let index = chunk.code[offset + 1] as usize;
-    print_constant(name, chunk, index);
-    offset + 2
-}
+        if offset > 0 && self.chunk.get_line(offset) == self.chunk.get_line(offset - 1) {
+            print!("   | ");
+        } else {
+            print!("{:4} ", self.chunk.get_line(offset));
+        }
 
-/// constant_long_instruction prints the constant long instruction index
-/// position and its value.
-fn constant_long_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
-    let index = (chunk.code[offset + 1] as usize)
-        | ((chunk.code[offset + 2] as usize) << 8)
-        | ((chunk.code[offset + 3] as usize) << 16);
+        let instruction = self.chunk.code[offset];
 
-    print_constant(name, chunk, index);
-    offset + 4
-}
+        match instruction {
+            OP_CONSTANT => self.constant_instruction("OP_CONSTANT", offset),
+            OP_CONSTANT_LONG => self.constant_long_instruction("OP_CONSTANT_LONG", offset),
+            OP_RETURN => self.simple_instruction("OP_RETURN", offset),
+            OP_NEGATE => self.simple_instruction("OP_NEGATE", offset),
+            OP_ADD => self.simple_instruction("OP_ADD", offset),
+            OP_SUBTRACT => self.simple_instruction("OP_SUBTRACT", offset),
+            OP_MULTIPLY => self.simple_instruction("OP_MULTIPLY", offset),
+            OP_DIVIDE => self.simple_instruction("OP_DIVIDE", offset),
+            OP_NIL => self.simple_instruction("OP_NIL", offset),
+            OP_TRUE => self.simple_instruction("OP_TRUE", offset),
+            OP_FALSE => self.simple_instruction("OP_FALSE", offset),
+            OP_NOT => self.simple_instruction("OP_NOT", offset),
+            OP_EQUAL => self.simple_instruction("OP_EQUAL", offset),
+            OP_NOT_EQUAL => self.simple_instruction("OP_NOT_EQUAL", offset),
+            OP_LESS => self.simple_instruction("OP_LESS", offset),
+            OP_LESS_EQUAL => self.simple_instruction("OP_LESS_EQUAL", offset),
+            OP_GREATER => self.simple_instruction("OP_GREATER", offset),
+            OP_GREATER_EQUAL => self.simple_instruction("OP_GREATER_EQUAL", offset),
+            _ => {
+                println!("Unknown opcode {}", instruction);
+                offset + 1
+            }
+        }
+    }
 
-fn print_constant(name: &str, chunk: &Chunk, index: usize) {
-    print!("{:<16} {:4} '", name, index);
-    print_value(chunk.constants[index]);
-    println!("'");
+    /// simple_instruction prints the name of a simple instruction
+    /// and increments the offset.
+    fn simple_instruction(&self, name: &str, offset: usize) -> usize {
+        println!("{name}");
+        offset + 1
+    }
+
+    /// constant_instruction prints the constant index position and its value.
+    fn constant_instruction(&self, name: &str, offset: usize) -> usize {
+        let index = self.chunk.code[offset + 1] as usize;
+        self.print_constant(name, index);
+        offset + 2
+    }
+
+    /// constant_long_instruction prints the constant long instruction index
+    /// position and its value.
+    fn constant_long_instruction(&self, name: &str, offset: usize) -> usize {
+        let index = (self.chunk.code[offset + 1] as usize)
+            | ((self.chunk.code[offset + 2] as usize) << 8)
+            | ((self.chunk.code[offset + 3] as usize) << 16);
+
+        self.print_constant(name, index);
+        offset + 4
+    }
+
+    /// print_constant prints the instruction name, constant index, and
+    /// formatted constant value.
+    fn print_constant(&self, name: &str, index: usize) {
+        print!("{:<16} {:4} '", name, index);
+        print_value(self.chunk.constants[index], self.heap);
+        println!("'");
+    }
 }
 
 /// print_value handles printing of the common Value type.
-pub fn print_value(value: Value) {
+pub fn print_value(value: Value, heap: &Heap) {
     match value {
         Value::Nil => print!("nil"),
         Value::Bool(b) => print!("{b}"),
         Value::Number(n) => print!("{n}"),
-        // TODO: eventually, pass the vm heap in here in
-        // order to actually write out the real values like strings.
-        Value::Obj(id) => print!("OBJECT({id})"),
+        Value::Obj(id) => {
+            if heap.is_string(id) {
+                print!("{}", heap.as_string(id))
+            }
+        }
     }
 }

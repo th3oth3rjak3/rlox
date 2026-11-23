@@ -1,7 +1,8 @@
 use crate::{
     chunk::Chunk,
     common::Value,
-    debug::disassemble_chunk,
+    debug::Disassembler,
+    heap::Heap,
     opcode::*,
     precedence::Precedence,
     scanner::Scanner,
@@ -9,21 +10,21 @@ use crate::{
 };
 
 /// ParseFn is any function that can parse source.
-type ParseFn<'src> = fn(&mut Compiler<'src>);
+type ParseFn<'src, 'heap> = fn(&mut Compiler<'src, 'heap>);
 
 /// ParseRule is a rule that describes how to parse
 /// precedences.
-struct ParseRule<'src> {
-    prefix: Option<ParseFn<'src>>,
-    infix: Option<ParseFn<'src>>,
+struct ParseRule<'src, 'heap> {
+    prefix: Option<ParseFn<'src, 'heap>>,
+    infix: Option<ParseFn<'src, 'heap>>,
     precedence: Precedence,
 }
 
-impl<'src> ParseRule<'src> {
+impl<'src, 'heap> ParseRule<'src, 'heap> {
     /// Create a new parse rule.
     const fn new(
-        prefix: Option<ParseFn<'src>>,
-        infix: Option<ParseFn<'src>>,
+        prefix: Option<ParseFn<'src, 'heap>>,
+        infix: Option<ParseFn<'src, 'heap>>,
         precedence: Precedence,
     ) -> Self {
         Self {
@@ -36,7 +37,7 @@ impl<'src> ParseRule<'src> {
 
 /// Compiler is a source code compiler that iterates over the source and
 /// produces executable bytecode chunks.
-pub struct Compiler<'src> {
+pub struct Compiler<'src, 'heap> {
     pub source: &'src str,
     pub scanner: Scanner<'src>,
     pub current: Token,
@@ -44,12 +45,13 @@ pub struct Compiler<'src> {
     pub had_error: bool,
     pub panic_mode: bool,
     pub chunk: Chunk,
+    pub heap: &'heap mut Heap,
 }
 
-impl<'src> Compiler<'src> {
+impl<'src, 'heap> Compiler<'src, 'heap> {
     /// new creates a new compiler. The compiler must be primed with a
     /// call to advance in order to scan the first token.
-    pub fn new(source: &'src str) -> Self {
+    pub fn new(source: &'src str, heap: &'heap mut Heap) -> Self {
         // error_token is expected to fill current and previous until the first real
         // "advance" is called on the parser to populate the current token.
         let error_token = Token::new(
@@ -67,6 +69,7 @@ impl<'src> Compiler<'src> {
             panic_mode: false,
             source,
             chunk: Chunk::new(),
+            heap,
         }
     }
 
@@ -102,6 +105,7 @@ impl<'src> Compiler<'src> {
         self.parse_precedence(Precedence::Assignment);
     }
 
+    /// number emits constant numeric value.
     fn number(&mut self) {
         let lexeme = self.previous.lexeme(self.source);
         let value: f64 = lexeme
@@ -110,11 +114,13 @@ impl<'src> Compiler<'src> {
         self.emit_constant(Value::Number(value));
     }
 
+    /// grouping emits a grouping expression.
     fn grouping(&mut self) {
         self.expression();
         self.consume(TokenKind::RightParen, "Expect ')' after expression.");
     }
 
+    /// unary emits a unary expression.
     fn unary(&mut self) {
         let operator = self.previous.kind;
 
@@ -127,6 +133,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
+    /// binary emits a binary expression.
     fn binary(&mut self) {
         let operator = self.previous.kind;
         let rule = self.get_rule(operator);
@@ -147,6 +154,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
+    /// literal emits a literal value.
     fn literal(&mut self) {
         match self.previous.kind {
             TokenKind::False => self.emit_byte(OP_FALSE),
@@ -156,6 +164,17 @@ impl<'src> Compiler<'src> {
         }
     }
 
+    /// string interns the string value in the heap and
+    /// then emits the constant handle into the chunk.
+    fn string(&mut self) {
+        let lexeme = self.previous.lexeme(self.source);
+        let lexeme = lexeme[1..lexeme.len() - 1].to_owned();
+        let id = self.heap.intern_string(lexeme);
+        self.emit_constant(Value::Obj(id));
+    }
+
+    /// parse_precedence handles precedence ordering, looking
+    /// up the different parse operations with rules.
     fn parse_precedence(&mut self, precedence: Precedence) {
         self.advance();
         let prefix_rule = self.get_rule(self.previous.kind).prefix;
@@ -173,6 +192,7 @@ impl<'src> Compiler<'src> {
         }
     }
 
+    /// emit_constant emits a constant value into the chunk.
     fn emit_constant(&mut self, value: Value) {
         let line = self.previous.line;
         let chunk = self.current_chunk_mut();
@@ -186,14 +206,16 @@ impl<'src> Compiler<'src> {
         chunk.write(byte, line);
     }
 
-    /// end_compiler finishes compilation.
+    /// end_compiler finishes compilation and must be called
+    /// in order to produce the final return statement.
     pub fn end_compiler(&mut self) {
         self.emit_return();
 
         cfg_select! {
             debug_assertions => {
                 if !self.had_error {
-                    disassemble_chunk(self.current_chunk(), "code");
+                    let disassembler = Disassembler::new(&self.chunk, self.heap);
+                    disassembler.disassemble_chunk("code");
                 }
             }
             _ => { /* NO-OP */}
@@ -203,19 +225,6 @@ impl<'src> Compiler<'src> {
     /// emit_return emits a return instruction to the current chunk.
     fn emit_return(&mut self) {
         self.emit_byte(OP_RETURN);
-    }
-
-    /// emit_bytes emits two bytes together to the current chunk.
-    #[allow(unused)]
-    fn emit_bytes(&mut self, byte1: u8, byte2: u8) {
-        self.emit_byte(byte1);
-        self.emit_byte(byte2);
-    }
-
-    /// current_chunk takes a borrow to the current
-    /// chunk.
-    fn current_chunk(&self) -> &Chunk {
-        &self.chunk
     }
 
     /// current_chunk_mut takes a mutable borrow to the
@@ -255,7 +264,9 @@ impl<'src> Compiler<'src> {
         self.had_error = true;
     }
 
-    fn get_rule(&self, kind: TokenKind) -> ParseRule<'src> {
+    /// get_rule finds the precedence-based parse rule associated
+    /// with the TokenKind.
+    fn get_rule(&self, kind: TokenKind) -> ParseRule<'src, 'heap> {
         match kind {
             TokenKind::LeftParen => ParseRule::new(Some(Self::grouping), None, Precedence::None),
             TokenKind::Minus => {
@@ -278,6 +289,7 @@ impl<'src> Compiler<'src> {
             | TokenKind::LessEqual => {
                 ParseRule::new(None, Some(Self::binary), Precedence::Comparison)
             }
+            TokenKind::String => ParseRule::new(Some(Self::string), None, Precedence::None),
             _ => ParseRule::new(None, None, Precedence::None),
         }
     }

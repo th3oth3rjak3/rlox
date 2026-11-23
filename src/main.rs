@@ -32,6 +32,7 @@ fn main() {
     }
 }
 
+/// repl runs the vm for each line of user input.
 fn repl() {
     let mut vm = VM::new();
 
@@ -56,6 +57,8 @@ fn repl() {
     }
 }
 
+/// run_file interprets code for a single source
+/// code file.
 fn run_file(file: String) {
     let source = load_source(&file);
     let mut vm = VM::new();
@@ -69,6 +72,8 @@ fn run_file(file: String) {
     std::process::exit(exit_code);
 }
 
+/// load_source loads the source code at the provided
+/// file location. If the file cannot be found it exits.
 fn load_source(file: &str) -> String {
     match std::fs::read_to_string(file) {
         Ok(s) => s,

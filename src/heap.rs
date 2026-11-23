@@ -1,8 +1,14 @@
+use std::collections::HashMap;
+
 use crate::objects::{HeapObj, ObjId, ObjKind};
 
 /// Heap represents a garbage collector primitive
 /// used to manage objects that have dynamic memory size.
 pub struct Heap {
+    /// strings is a collection of interned strings that
+    /// allow us to do string comparisons using only the
+    /// ObjId instead of character by character.
+    strings: HashMap<String, ObjId>,
     /// objects is the actual storage location for all
     /// heap managed objects.
     objects: Vec<Option<HeapObj>>,
@@ -27,14 +33,29 @@ impl Heap {
     /// new creates a new Heap.
     pub fn new() -> Self {
         Self {
+            strings: HashMap::new(),
             objects: Vec::with_capacity(256),
             free: Vec::new(),
             bytes_allocated: 0,
         }
     }
 
+    /// intern_string de-duplicates strings in the heap
+    /// to save space and to make string comparison easier.
+    pub fn intern_string(&mut self, s: String) -> ObjId {
+        if let Some(&id) = self.strings.get(&s) {
+            return id;
+        }
+
+        let key = s.clone();
+        let id = self.alloc(ObjKind::String(s));
+        self.strings.insert(key, id);
+        id
+    }
+
     /// alloc reserves space on the heap for the
-    /// new object and returns a new ObjId handle.
+    /// new object and returns a new ObjId handle. String allocations
+    /// should be done through intern_string.
     pub fn alloc(&mut self, kind: ObjKind) -> ObjId {
         let obj = HeapObj {
             is_marked: false,

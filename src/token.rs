@@ -1,3 +1,5 @@
+/// TokenKind represents all of the different kinds
+/// of tokens that are recognized in the Lox language.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {
     // Single-character tokens.
@@ -51,6 +53,8 @@ pub enum TokenKind {
     EOF,
 }
 
+/// Token is a lexical token which is later used
+/// for parsing into bytecode.
 #[derive(Debug, Clone, Copy)]
 pub struct Token {
     pub kind: TokenKind,
@@ -70,6 +74,8 @@ impl Token {
         }
     }
 
+    /// lexeme gets the original text associated
+    /// with the current token.
     pub fn lexeme<'a>(&self, source: &'a str) -> &'a str {
         if self.start >= source.len() {
             return "";

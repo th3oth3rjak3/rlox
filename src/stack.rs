@@ -1,4 +1,4 @@
-use crate::{common::Value, debug::print_value};
+use crate::{common::Value, debug::print_value, heap::Heap};
 use std::{array, fmt::Display};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -89,7 +89,7 @@ impl ValueStack {
     }
 
     /// print writes the current value stack to stdout.
-    pub fn print(&self) {
+    pub fn print(&self, heap: &Heap) {
         let slice = self.as_slice();
 
         if slice.is_empty() {
@@ -99,7 +99,7 @@ impl ValueStack {
 
         for value in slice {
             print!("[ ");
-            print_value(*value);
+            print_value(*value, heap);
             print!(" ]");
         }
         println!();
