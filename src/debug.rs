@@ -28,18 +28,18 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
     let instruction = chunk.code[offset];
 
     match instruction {
-        OP_CONSTANT => return constant_instruction("OP_CONSTANT", chunk, offset),
-        OP_CONSTANT_LONG => return constant_long_instruction("OP_CONSTANT_LONG", chunk, offset),
-        OP_RETURN => return simple_instruction("OP_RETURN", offset),
-        OP_NEGATE => return simple_instruction("OP_NEGATE", offset),
-        OP_ADD => return simple_instruction("OP_ADD", offset),
-        OP_SUBTRACT => return simple_instruction("OP_SUBTRACT", offset),
-        OP_MULTIPLY => return simple_instruction("OP_MULTIPLY", offset),
-        OP_DIVIDE => return simple_instruction("OP_DIVIDE", offset),
+        OP_CONSTANT => constant_instruction("OP_CONSTANT", chunk, offset),
+        OP_CONSTANT_LONG => constant_long_instruction("OP_CONSTANT_LONG", chunk, offset),
+        OP_RETURN => simple_instruction("OP_RETURN", offset),
+        OP_NEGATE => simple_instruction("OP_NEGATE", offset),
+        OP_ADD => simple_instruction("OP_ADD", offset),
+        OP_SUBTRACT => simple_instruction("OP_SUBTRACT", offset),
+        OP_MULTIPLY => simple_instruction("OP_MULTIPLY", offset),
+        OP_DIVIDE => simple_instruction("OP_DIVIDE", offset),
 
         _ => {
             println!("Unknown opcode {}", instruction);
-            return offset + 1;
+            offset + 1
         }
     }
 }
@@ -48,7 +48,7 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
 /// and increments the offset.
 fn simple_instruction(name: &str, offset: usize) -> usize {
     println!("{name}");
-    return offset + 1;
+    offset + 1
 }
 
 /// constant_instruction prints the constant index position and its value.
@@ -56,8 +56,8 @@ fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
     let constant = chunk.code[offset + 1];
     print!("{:<16} {:4} '", name, constant);
     print_value(chunk.constants[constant as usize]);
-    print!("'\n");
-    return offset + 2;
+    println!("'");
+    offset + 2
 }
 
 /// constant_long_instruction prints the constant long instruction index

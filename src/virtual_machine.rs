@@ -1,5 +1,6 @@
 use crate::{
-    chunk::Chunk, common::Value, debug, opcode::*, scanner::*, stack::ValueStack, token::TokenKind,
+    chunk::Chunk, common::Value, compiler::Compiler, debug, opcode::*, stack::ValueStack,
+    token::TokenKind,
 };
 
 /// InterpretResult is the result
@@ -17,6 +18,12 @@ pub struct VM {
     stack: ValueStack,
 }
 
+impl Default for VM {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VM {
     /// new creates a new virtual machine.
     pub fn new() -> Self {
@@ -31,21 +38,14 @@ impl VM {
         self.ip = 0;
         self.stack.reset();
 
-        let mut chunk = Chunk::new();
-
-        if !self.compile(source, &mut chunk) {
-            return Err(InterpretResult::CompileError);
+        match self.compile(source) {
+            Some(chunk) => self.run(&chunk),
+            None => Err(InterpretResult::CompileError),
         }
-
-        self.run(&chunk)
     }
 
     /// run is the hot loop where bytecode evaluation occurs.
     fn run(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
-        if chunk.code.len() == 0 {
-            return Ok(());
-        }
-
         cfg_select! {
             debug_assertions => {
                 println!("== VM DIAGNOSTICS ==")
@@ -210,38 +210,20 @@ impl VM {
     }
 
     /// compile takes the source code and produces a new chunk to run.
-    fn compile(&mut self, source: &str, chunk: &mut Chunk) -> bool {
-        _ = chunk;
-        let mut scanner = Scanner::new();
+    fn compile(&mut self, source: &str) -> Option<Chunk> {
+        let mut compiler = Compiler::new(source);
+        compiler.advance();
+        compiler.expression();
+        compiler.consume(TokenKind::EOF, "Expect end of expression.");
+
         // TODO: make scanner scan tokens.
         // TODO: have parser make chunk.
         // TODO: return chunk without reference data.
 
-        // TEMP CODE FOR SCANNER DEBUG
-        let mut line = 0;
-        println!("LINE {:<10} LEXEME", "TOKEN_KIND");
-        loop {
-            let token = scanner.scan_token(source);
-            if token.line != line {
-                print!("{:4} ", token.line);
-                line = token.line;
-            } else {
-                print!("   | ");
-            }
-
-            println!(
-                "{:<10} '{}'",
-                format!("{:?}", token.kind),
-                token.lexeme(source)
-            );
-
-            if token.kind == TokenKind::EOF {
-                break;
-            }
+        if compiler.had_error {
+            None
+        } else {
+            Some(compiler.chunk)
         }
-
-        // END TEMP CODE SCANNER DEBUG
-
-        return true;
     }
 }

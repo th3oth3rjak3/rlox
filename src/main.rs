@@ -4,8 +4,10 @@ use crate::virtual_machine::{InterpretResult, VM};
 
 pub mod chunk;
 pub mod common;
+pub mod compiler;
 pub mod debug;
 pub mod opcode;
+pub mod precedence;
 pub mod scanner;
 pub mod stack;
 pub mod token;
@@ -37,13 +39,13 @@ fn repl() {
 
     loop {
         print!("> ");
-        if let Err(_) = stdout.flush() {
+        if stdout.flush().is_err() {
             println!();
             break;
         }
 
         line_buffer.clear();
-        if let Err(_) = stdin.read_line(&mut line_buffer) {
+        if stdin.read_line(&mut line_buffer).is_err() {
             println!();
             break;
         }

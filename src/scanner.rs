@@ -1,39 +1,41 @@
 use crate::token::{Token, TokenKind};
 
 /// Scanner iterates over source code and produces lexical tokens.
-pub struct Scanner {
+pub struct Scanner<'src> {
     pub start: usize,
     pub current: usize,
     pub line: usize,
+    pub source: &'src [u8],
 }
 
-impl Scanner {
+impl<'src> Scanner<'src> {
     /// new creates a new scanner.
-    pub fn new() -> Self {
+    pub fn new(source: &'src str) -> Self {
         Self {
             start: 0,
             current: 0,
             line: 1,
+            source: source.as_bytes(),
         }
     }
 
     /// scan_token scans the next token from the input source.
-    pub fn scan_token(&mut self, source: &str) -> Token {
-        self.skip_whitespace(source);
+    pub fn scan_token(&mut self) -> Token {
+        self.skip_whitespace();
         self.start = self.current;
 
-        if self.is_at_end(source) {
+        if self.is_at_end() {
             return self.make_token(TokenKind::EOF);
         }
 
-        let byte = self.advance_byte(source);
+        let byte = self.advance_byte();
 
         if is_alpha(byte) {
-            return self.identifier_token(source);
+            return self.identifier_token();
         }
 
         if is_digit(byte) {
-            return self.number_token(source);
+            return self.number_token();
         }
 
         match byte {
@@ -49,42 +51,42 @@ impl Scanner {
             b'/' => self.make_token(TokenKind::Slash),
             b'*' => self.make_token(TokenKind::Star),
             b'!' => {
-                if self.match_byte(b'=', source) {
-                    return self.make_token(TokenKind::BangEqual);
+                if self.match_byte(b'=') {
+                    self.make_token(TokenKind::BangEqual)
                 } else {
-                    return self.make_token(TokenKind::Bang);
+                    self.make_token(TokenKind::Bang)
                 }
             }
             b'=' => {
-                if self.match_byte(b'=', source) {
-                    return self.make_token(TokenKind::EqualEqual);
+                if self.match_byte(b'=') {
+                    self.make_token(TokenKind::EqualEqual)
                 } else {
-                    return self.make_token(TokenKind::Equal);
+                    self.make_token(TokenKind::Equal)
                 }
             }
             b'<' => {
-                if self.match_byte(b'=', source) {
-                    return self.make_token(TokenKind::LessEqual);
+                if self.match_byte(b'=') {
+                    self.make_token(TokenKind::LessEqual)
                 } else {
-                    return self.make_token(TokenKind::Less);
+                    self.make_token(TokenKind::Less)
                 }
             }
             b'>' => {
-                if self.match_byte(b'=', source) {
-                    return self.make_token(TokenKind::GreaterEqual);
+                if self.match_byte(b'=') {
+                    self.make_token(TokenKind::GreaterEqual)
                 } else {
-                    return self.make_token(TokenKind::Greater);
+                    self.make_token(TokenKind::Greater)
                 }
             }
-            b'"' => self.string_token(source),
+            b'"' => self.string_token(),
             _ => self.error_token("Unexpected character."),
         }
     }
 
     /// is_at_end checks to see if the current scanner position
     /// has reached the end of the source code.
-    fn is_at_end(&self, source: &str) -> bool {
-        self.current == source.len()
+    fn is_at_end(&self) -> bool {
+        self.current == self.source.len()
     }
 
     /// make_token produces a token based on the current location
@@ -110,9 +112,9 @@ impl Scanner {
 
     /// advance increases the current position of the scanner
     /// and returns the current byte in the source string.
-    fn advance_byte(&mut self, source: &str) -> u8 {
+    fn advance_byte(&mut self) -> u8 {
         self.current += 1;
-        source.as_bytes()[self.current - 1]
+        self.source[self.current - 1]
     }
 
     /// advance increases the current position of the scanner by
@@ -124,41 +126,38 @@ impl Scanner {
 
     /// match_byte checks the given byte and advances the current
     /// if they match and returns true, otherwise returns false.
-    fn match_byte(&mut self, byte: u8, source: &str) -> bool {
-        if self.is_at_end(source) {
+    fn match_byte(&mut self, byte: u8) -> bool {
+        if self.is_at_end() {
             return false;
         }
 
-        if source.as_bytes()[self.current] != byte {
+        if self.source[self.current] != byte {
             return false;
         }
 
         self.current += 1;
-        return true;
+        true
     }
 
     /// peek returns the byte at the current position.
-    fn peek(&self, source: &str) -> u8 {
-        source.as_bytes()[self.current]
+    fn peek(&self) -> u8 {
+        self.source.get(self.current).copied().unwrap_or(0)
     }
 
-    fn peek_next(&self, source: &str) -> u8 {
-        if self.is_at_end(source) {
-            return 0;
-        }
-
-        return source.as_bytes()[self.current + 1];
+    /// peek_next returns the byte at the next position.
+    fn peek_next(&self) -> u8 {
+        self.source.get(self.current + 1).copied().unwrap_or(0)
     }
 
     /// skip_whitespace advances the scanner until no current
     /// whitespace characters are found.
-    fn skip_whitespace(&mut self, source: &str) {
-        if self.is_at_end(source) {
+    fn skip_whitespace(&mut self) {
+        if self.is_at_end() {
             return;
         }
 
         loop {
-            match self.peek(source) {
+            match self.peek() {
                 b' ' | b'\r' | b'\t' => {
                     self.advance();
                 }
@@ -166,13 +165,9 @@ impl Scanner {
                     self.line += 1;
                     self.advance();
                 }
-                b'/' => {
-                    if self.peek_next(source) == b'/' {
-                        while self.peek(source) != b'\n' && !self.is_at_end(source) {
-                            self.advance();
-                        }
-                    } else {
-                        return;
+                b'/' if self.peek_next() == b'/' => {
+                    while self.peek() != b'\n' && !self.is_at_end() {
+                        self.advance();
                     }
                 }
                 _ => return,
@@ -182,72 +177,72 @@ impl Scanner {
 
     /// string_token advances until the whole quoted string
     /// is found or the scanner reaches the end of the source input.
-    fn string_token(&mut self, source: &str) -> Token {
-        while self.peek(source) != b'"' && !self.is_at_end(source) {
-            if self.peek(source) == b'\n' {
+    fn string_token(&mut self) -> Token {
+        while self.peek() != b'"' && !self.is_at_end() {
+            if self.peek() == b'\n' {
                 self.line += 1;
             }
             self.advance();
         }
 
-        if self.is_at_end(source) {
+        if self.is_at_end() {
             return self.error_token("Unterminated string.");
         }
 
         self.advance(); // closing quote
-        return self.make_token(TokenKind::String);
+        self.make_token(TokenKind::String)
     }
 
     /// number_token advances the scanner to create a numeric
     /// token handling both integer and floating point types.
-    fn number_token(&mut self, source: &str) -> Token {
-        while is_digit(self.peek(source)) {
+    fn number_token(&mut self) -> Token {
+        while is_digit(self.peek()) {
             self.advance();
         }
 
-        if self.peek(source) == b'.' && is_digit(self.peek_next(source)) {
+        if self.peek() == b'.' && is_digit(self.peek_next()) {
             self.advance(); // consume '.'
 
-            while is_digit(self.peek(source)) {
+            while is_digit(self.peek()) {
                 self.advance();
             }
         }
 
-        return self.make_token(TokenKind::Number);
+        self.make_token(TokenKind::Number)
     }
 
     /// identifier_tooken advances the scanner while the
     /// input looks like an identifier. This function handles
     /// both keywords and user defined identifiers.
-    fn identifier_token(&mut self, source: &str) -> Token {
-        while is_alpha(self.peek(source)) || is_digit(self.peek(source)) {
+    fn identifier_token(&mut self) -> Token {
+        while is_alpha(self.peek()) || is_digit(self.peek()) {
             self.advance();
         }
 
-        let ident_type = self.identifier_type(source);
-        return self.make_token(ident_type);
+        let ident_type = self.identifier_type();
+        self.make_token(ident_type)
     }
 
     /// identifier_type uses a trie to determine if an identifier
     /// is a user generated one or a keyword in the language.
-    fn identifier_type(&self, source: &str) -> TokenKind {
-        match &source[self.start..self.current] {
-            "and" => TokenKind::And,
-            "class" => TokenKind::Class,
-            "else" => TokenKind::Else,
-            "false" => TokenKind::False,
-            "for" => TokenKind::For,
-            "fun" => TokenKind::Fun,
-            "if" => TokenKind::If,
-            "nil" => TokenKind::Nil,
-            "or" => TokenKind::Or,
-            "print" => TokenKind::Print,
-            "return" => TokenKind::Return,
-            "super" => TokenKind::Super,
-            "this" => TokenKind::This,
-            "true" => TokenKind::True,
-            "var" => TokenKind::Var,
-            "while" => TokenKind::While,
+    fn identifier_type(&self) -> TokenKind {
+        match &self.source[self.start..self.current] {
+            b"and" => TokenKind::And,
+            b"class" => TokenKind::Class,
+            b"else" => TokenKind::Else,
+            b"false" => TokenKind::False,
+            b"for" => TokenKind::For,
+            b"fun" => TokenKind::Fun,
+            b"if" => TokenKind::If,
+            b"nil" => TokenKind::Nil,
+            b"or" => TokenKind::Or,
+            b"print" => TokenKind::Print,
+            b"return" => TokenKind::Return,
+            b"super" => TokenKind::Super,
+            b"this" => TokenKind::This,
+            b"true" => TokenKind::True,
+            b"var" => TokenKind::Var,
+            b"while" => TokenKind::While,
             _ => TokenKind::Identifier,
         }
     }
@@ -256,7 +251,7 @@ impl Scanner {
 /// is_digit checks to see if the provided byte
 /// is an ascii digit.
 fn is_digit(byte: u8) -> bool {
-    matches!(byte, b'0'..=b'9')
+    byte.is_ascii_digit()
 }
 
 /// is_alpha checks to see if the provided byte

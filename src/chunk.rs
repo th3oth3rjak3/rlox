@@ -12,7 +12,7 @@ pub struct LineRun {
 
 /// Chunk represents a compiled chunk of bytecode
 /// for a single file program.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Chunk {
     pub code: Vec<u8>,
     pub constants: Vec<Value>,
@@ -22,11 +22,7 @@ pub struct Chunk {
 impl Chunk {
     /// new creates a new Chunk.
     pub fn new() -> Self {
-        Self {
-            code: Vec::new(),
-            constants: Vec::new(),
-            lines: Vec::new(),
-        }
+        Self::default()
     }
 
     /// reset sets the state of the chunk to its original
@@ -42,11 +38,11 @@ impl Chunk {
     pub fn write(&mut self, byte: u8, line: usize) {
         self.code.push(byte);
 
-        if let Some(last) = self.lines.last_mut() {
-            if last.line == line {
-                last.count += 1;
-                return;
-            }
+        if let Some(last) = self.lines.last_mut()
+            && last.line == line
+        {
+            last.count += 1;
+            return;
         }
 
         self.lines.push(LineRun { line, count: 1 });
@@ -89,6 +85,6 @@ impl Chunk {
     /// the index value used to later lookup.
     fn add_constant(&mut self, value: Value) -> usize {
         self.constants.push(value);
-        return self.constants.len() - 1;
+        self.constants.len() - 1
     }
 }

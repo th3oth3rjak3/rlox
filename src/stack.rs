@@ -26,6 +26,12 @@ pub struct ValueStack {
     backing_storage: [Value; STACK_MAX],
 }
 
+impl Default for ValueStack {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ValueStack {
     /// new creates a new value stack filled with nil values.
     pub fn new() -> Self {
