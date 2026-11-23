@@ -120,8 +120,10 @@ impl<'src> Compiler<'src> {
 
         self.parse_precedence(Precedence::Unary);
 
-        if operator == TokenKind::Minus {
-            self.emit_byte(OP_NEGATE);
+        match operator {
+            TokenKind::Minus => self.emit_byte(OP_NEGATE),
+            TokenKind::Bang => self.emit_byte(OP_NOT),
+            _ => (),
         }
     }
 
@@ -131,10 +133,25 @@ impl<'src> Compiler<'src> {
         self.parse_precedence(rule.precedence.next());
 
         match operator {
+            TokenKind::BangEqual => self.emit_byte(OP_NOT_EQUAL),
+            TokenKind::EqualEqual => self.emit_byte(OP_EQUAL),
+            TokenKind::Greater => self.emit_byte(OP_GREATER),
+            TokenKind::GreaterEqual => self.emit_byte(OP_GREATER_EQUAL),
+            TokenKind::Less => self.emit_byte(OP_LESS),
+            TokenKind::LessEqual => self.emit_byte(OP_LESS_EQUAL),
             TokenKind::Plus => self.emit_byte(OP_ADD),
             TokenKind::Minus => self.emit_byte(OP_SUBTRACT),
             TokenKind::Star => self.emit_byte(OP_MULTIPLY),
             TokenKind::Slash => self.emit_byte(OP_DIVIDE),
+            _ => (),
+        }
+    }
+
+    fn literal(&mut self) {
+        match self.previous.kind {
+            TokenKind::False => self.emit_byte(OP_FALSE),
+            TokenKind::True => self.emit_byte(OP_TRUE),
+            TokenKind::Nil => self.emit_byte(OP_NIL),
             _ => (),
         }
     }
@@ -248,6 +265,19 @@ impl<'src> Compiler<'src> {
             TokenKind::Slash => ParseRule::new(None, Some(Self::binary), Precedence::Factor),
             TokenKind::Star => ParseRule::new(None, Some(Self::binary), Precedence::Factor),
             TokenKind::Number => ParseRule::new(Some(Self::number), None, Precedence::None),
+            TokenKind::True | TokenKind::False | TokenKind::Nil => {
+                ParseRule::new(Some(Self::literal), None, Precedence::None)
+            }
+            TokenKind::Bang => ParseRule::new(Some(Self::unary), None, Precedence::None),
+            TokenKind::BangEqual | TokenKind::EqualEqual => {
+                ParseRule::new(None, Some(Self::binary), Precedence::Equality)
+            }
+            TokenKind::Greater
+            | TokenKind::GreaterEqual
+            | TokenKind::Less
+            | TokenKind::LessEqual => {
+                ParseRule::new(None, Some(Self::binary), Precedence::Comparison)
+            }
             _ => ParseRule::new(None, None, Precedence::None),
         }
     }

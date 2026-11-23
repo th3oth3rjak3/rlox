@@ -1,4 +1,4 @@
-use crate::common::Value;
+use crate::{common::Value, debug::print_value};
 use std::{array, fmt::Display};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -87,20 +87,21 @@ impl ValueStack {
     pub fn as_slice(&self) -> &[Value] {
         &self.backing_storage[0..self.stack_top]
     }
-}
 
-impl Display for ValueStack {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    /// print writes the current value stack to stdout.
+    pub fn print(&self) {
         let slice = self.as_slice();
 
         if slice.is_empty() {
-            return f.write_str("[ ]");
+            println!("[ ]");
+            return;
         }
 
         for value in slice {
-            write!(f, "[ {value} ]")?;
+            print!("[ ");
+            print_value(*value);
+            print!(" ]");
         }
-
-        Ok(())
+        println!();
     }
 }

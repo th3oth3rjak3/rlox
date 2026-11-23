@@ -36,7 +36,16 @@ pub fn disassemble_instruction(chunk: &Chunk, offset: usize) -> usize {
         OP_SUBTRACT => simple_instruction("OP_SUBTRACT", offset),
         OP_MULTIPLY => simple_instruction("OP_MULTIPLY", offset),
         OP_DIVIDE => simple_instruction("OP_DIVIDE", offset),
-
+        OP_NIL => simple_instruction("OP_NIL", offset),
+        OP_TRUE => simple_instruction("OP_TRUE", offset),
+        OP_FALSE => simple_instruction("OP_FALSE", offset),
+        OP_NOT => simple_instruction("OP_NOT", offset),
+        OP_EQUAL => simple_instruction("OP_EQUAL", offset),
+        OP_NOT_EQUAL => simple_instruction("OP_NOT_EQUAL", offset),
+        OP_LESS => simple_instruction("OP_LESS", offset),
+        OP_LESS_EQUAL => simple_instruction("OP_LESS_EQUAL", offset),
+        OP_GREATER => simple_instruction("OP_GREATER", offset),
+        OP_GREATER_EQUAL => simple_instruction("OP_GREATER_EQUAL", offset),
         _ => {
             println!("Unknown opcode {}", instruction);
             offset + 1
@@ -53,10 +62,8 @@ fn simple_instruction(name: &str, offset: usize) -> usize {
 
 /// constant_instruction prints the constant index position and its value.
 fn constant_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize {
-    let constant = chunk.code[offset + 1];
-    print!("{:<16} {:4} '", name, constant);
-    print_value(chunk.constants[constant as usize]);
-    println!("'");
+    let index = chunk.code[offset + 1] as usize;
+    print_constant(name, chunk, index);
     offset + 2
 }
 
@@ -67,12 +74,21 @@ fn constant_long_instruction(name: &str, chunk: &Chunk, offset: usize) -> usize 
         | ((chunk.code[offset + 2] as usize) << 8)
         | ((chunk.code[offset + 3] as usize) << 16);
 
-    println!("{:<16} {:4} '{}'", name, index, chunk.constants[index]);
-
+    print_constant(name, chunk, index);
     offset + 4
 }
 
+fn print_constant(name: &str, chunk: &Chunk, index: usize) {
+    print!("{:<16} {:4} '", name, index);
+    print_value(chunk.constants[index]);
+    println!("'");
+}
+
 /// print_value handles printing of the common Value type.
-fn print_value(value: Value) {
-    print!("{value}");
+pub fn print_value(value: Value) {
+    match value {
+        Value::Nil => print!("nil"),
+        Value::Bool(b) => print!("{b}"),
+        Value::Number(n) => print!("{n}"),
+    }
 }

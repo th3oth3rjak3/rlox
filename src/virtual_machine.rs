@@ -1,6 +1,12 @@
 use crate::{
-    chunk::Chunk, common::Value, compiler::Compiler, debug, opcode::*, stack::ValueStack,
+    chunk::Chunk,
+    common::Value,
+    compiler::Compiler,
+    debug::{self, print_value},
+    opcode::*,
+    stack::ValueStack,
     token::TokenKind,
+    virtual_machine::InterpretResult::RuntimeError,
 };
 
 /// InterpretResult is the result
@@ -56,7 +62,7 @@ impl VM {
         loop {
             cfg_select! {
                 debug_assertions => {
-                    println!("{}", self.stack);
+                    self.stack.print();
                     debug::disassemble_instruction(chunk, self.ip);
                 }
                 _ => { /* NO-OP */ }
@@ -66,21 +72,32 @@ impl VM {
             match instruction {
                 OP_CONSTANT => {
                     let constant = self.read_constant(chunk);
-                    self.push(constant)?;
+                    self.push(constant, chunk)?;
                 }
                 OP_CONSTANT_LONG => {
                     let constant = self.read_constant_long(chunk);
-                    self.push(constant)?;
+                    self.push(constant, chunk)?;
                 }
                 OP_RETURN => {
-                    println!("{}", self.stack.pop());
+                    print_value(self.stack.pop());
+                    println!();
                     return Ok(());
                 }
-                OP_NEGATE => self.negate()?,
-                OP_ADD => self.add()?,
-                OP_SUBTRACT => self.subtract()?,
-                OP_MULTIPLY => self.multiply()?,
-                OP_DIVIDE => self.divide()?,
+                OP_NEGATE => self.negate(chunk)?,
+                OP_ADD => self.add(chunk)?,
+                OP_SUBTRACT => self.subtract(chunk)?,
+                OP_MULTIPLY => self.multiply(chunk)?,
+                OP_DIVIDE => self.divide(chunk)?,
+                OP_NIL => self.push(Value::Nil, chunk)?,
+                OP_TRUE => self.push(Value::Bool(true), chunk)?,
+                OP_FALSE => self.push(Value::Bool(false), chunk)?,
+                OP_NOT => self.not(chunk)?,
+                OP_EQUAL => self.equal(chunk)?,
+                OP_NOT_EQUAL => self.not_equal(chunk)?,
+                OP_LESS => self.less(chunk)?,
+                OP_LESS_EQUAL => self.less_equal(chunk)?,
+                OP_GREATER => self.greater(chunk)?,
+                OP_GREATER_EQUAL => self.greater_equal(chunk)?,
                 _ => {
                     eprintln!("Unsupported opcode: {instruction}");
                     return Err(InterpretResult::RuntimeError);
@@ -91,18 +108,23 @@ impl VM {
 
     /// push places a value on the stack and handles stack overflow errors.
     #[inline(always)]
-    fn push(&mut self, value: Value) -> Result<(), InterpretResult> {
+    fn push(&mut self, value: Value, chunk: &Chunk) -> Result<(), InterpretResult> {
         self.stack.push(value).map_err(|err| {
-            self.runtime_error(&err.to_string());
-            InterpretResult::RuntimeError
+            self.runtime_error(chunk, &err.to_string());
+            RuntimeError
         })
     }
 
     /// runtime_error handles any runtime errors and resets the stack.
     #[cold]
     #[inline(never)]
-    fn runtime_error(&mut self, message: &str) {
-        eprintln!("{message}");
+    fn runtime_error(&mut self, chunk: &Chunk, message: &str) {
+        eprintln!("{}", message);
+
+        let instruction = self.ip - 1;
+        let line = chunk.get_line(instruction);
+        eprintln!("[line {}] in script", line);
+
         self.stack.reset();
     }
 
@@ -139,74 +161,148 @@ impl VM {
     /// negate does a numerical negation on the value at the top
     /// of the stack. This only works for numbers.
     #[inline(always)]
-    fn negate(&mut self) -> Result<(), InterpretResult> {
-        match self.stack.pop() {
-            Value::Number(n) => self.push(Value::Number(-n)),
-            _ => {
-                self.runtime_error("Operand must be a number.");
-                Err(InterpretResult::RuntimeError)
-            }
+    fn negate(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        if !self.stack.peek(0).is_number() {
+            self.runtime_error(chunk, "Operand must be a number.");
+            return Err(RuntimeError);
         }
+        let value = self.stack.pop().as_number();
+        self.push(Value::Number(-value), chunk)
     }
 
     /// add does numerical addition on the top two values from the stack.
     #[inline(always)]
-    fn add(&mut self) -> Result<(), InterpretResult> {
-        let right = self.stack.pop();
-        let left = self.stack.pop();
-
-        match (left, right) {
-            (Value::Number(l), Value::Number(r)) => self.push(Value::Number(l + r)),
-            _ => {
-                self.runtime_error("Operands must be two numbers.");
-                Err(InterpretResult::RuntimeError)
-            }
+    fn add(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        if !self.stack.peek(0).is_number() || !self.stack.peek(1).is_number() {
+            self.runtime_error(chunk, "Operands must be numbers.");
+            return Err(RuntimeError);
         }
+
+        let right = self.stack.pop().as_number();
+        let left = self.stack.pop().as_number();
+
+        self.push(Value::Number(left + right), chunk)
     }
 
     /// subtract does numerical subtraction on the top two values from the stack.
     #[inline(always)]
-    fn subtract(&mut self) -> Result<(), InterpretResult> {
-        let right = self.stack.pop();
-        let left = self.stack.pop();
-
-        match (left, right) {
-            (Value::Number(l), Value::Number(r)) => self.push(Value::Number(l - r)),
-            _ => {
-                self.runtime_error("Operands must be two numbers.");
-                Err(InterpretResult::RuntimeError)
-            }
+    fn subtract(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        if !self.stack.peek(0).is_number() || !self.stack.peek(1).is_number() {
+            self.runtime_error(chunk, "Operands must be numbers.");
+            return Err(RuntimeError);
         }
+
+        let right = self.stack.pop().as_number();
+        let left = self.stack.pop().as_number();
+
+        self.push(Value::Number(left - right), chunk)
     }
 
     /// multiply does numerical multiplication on the top two values from the stack.
     #[inline(always)]
-    fn multiply(&mut self) -> Result<(), InterpretResult> {
-        let right = self.stack.pop();
-        let left = self.stack.pop();
-
-        match (left, right) {
-            (Value::Number(l), Value::Number(r)) => self.push(Value::Number(l * r)),
-            _ => {
-                self.runtime_error("Operands must be two numbers.");
-                Err(InterpretResult::RuntimeError)
-            }
+    fn multiply(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        if !self.stack.peek(0).is_number() || !self.stack.peek(1).is_number() {
+            self.runtime_error(chunk, "Operands must be numbers.");
+            return Err(RuntimeError);
         }
+
+        let right = self.stack.pop().as_number();
+        let left = self.stack.pop().as_number();
+
+        self.push(Value::Number(left * right), chunk)
     }
 
     /// divide does numerical division on the top two values from the stack.
     #[inline(always)]
-    fn divide(&mut self) -> Result<(), InterpretResult> {
-        let right = self.stack.pop();
-        let left = self.stack.pop();
-
-        match (left, right) {
-            (Value::Number(l), Value::Number(r)) => self.push(Value::Number(l / r)),
-            _ => {
-                self.runtime_error("Operands must be two numbers.");
-                Err(InterpretResult::RuntimeError)
-            }
+    fn divide(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        if !self.stack.peek(0).is_number() || !self.stack.peek(1).is_number() {
+            self.runtime_error(chunk, "Operands must be numbers.");
+            return Err(RuntimeError);
         }
+
+        let right = self.stack.pop().as_number();
+        let left = self.stack.pop().as_number();
+
+        self.push(Value::Number(left / right), chunk)
+    }
+
+    /// not handles boolean negation.
+    #[inline(always)]
+    fn not(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        let value = self.stack.pop().is_falsey();
+        self.push(Value::Bool(value), chunk)
+    }
+
+    /// equal handles equality.
+    #[inline(always)]
+    fn equal(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        let b = self.stack.pop();
+        let a = self.stack.pop();
+        self.push(Value::Bool(a == b), chunk)
+    }
+
+    /// not_equal handles inequality.
+    #[inline(always)]
+    fn not_equal(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        let b = self.stack.pop();
+        let a = self.stack.pop();
+        self.push(Value::Bool(a != b), chunk)
+    }
+
+    /// less does a numeric comparison for lhs < rhs.
+    #[inline(always)]
+    fn less(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        if !self.stack.peek(0).is_number() || !self.stack.peek(1).is_number() {
+            self.runtime_error(chunk, "Operands must be numbers.");
+            return Err(RuntimeError);
+        }
+
+        let right = self.stack.pop().as_number();
+        let left = self.stack.pop().as_number();
+
+        self.push(Value::Bool(left < right), chunk)
+    }
+
+    /// less_equal does a numeric comparison for lhs <= rhs.
+    #[inline(always)]
+    fn less_equal(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        if !self.stack.peek(0).is_number() || !self.stack.peek(1).is_number() {
+            self.runtime_error(chunk, "Operands must be numbers.");
+            return Err(RuntimeError);
+        }
+
+        let right = self.stack.pop().as_number();
+        let left = self.stack.pop().as_number();
+
+        self.push(Value::Bool(left <= right), chunk)
+    }
+
+    /// greater does a numeric comparison for lhs > rhs.
+    #[inline(always)]
+    fn greater(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        if !self.stack.peek(0).is_number() || !self.stack.peek(1).is_number() {
+            self.runtime_error(chunk, "Operands must be numbers.");
+            return Err(RuntimeError);
+        }
+
+        let right = self.stack.pop().as_number();
+        let left = self.stack.pop().as_number();
+
+        self.push(Value::Bool(left > right), chunk)
+    }
+
+    /// greater_equal does a numeric comparison for lhs >= rhs.
+    #[inline(always)]
+    fn greater_equal(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        if !self.stack.peek(0).is_number() || !self.stack.peek(1).is_number() {
+            self.runtime_error(chunk, "Operands must be numbers.");
+            return Err(RuntimeError);
+        }
+
+        let right = self.stack.pop().as_number();
+        let left = self.stack.pop().as_number();
+
+        self.push(Value::Bool(left >= right), chunk)
     }
 
     /// compile takes the source code and produces a new chunk to run.
@@ -215,6 +311,7 @@ impl VM {
         compiler.advance();
         compiler.expression();
         compiler.consume(TokenKind::EOF, "Expect end of expression.");
+        compiler.end_compiler();
 
         // TODO: make scanner scan tokens.
         // TODO: have parser make chunk.

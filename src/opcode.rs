@@ -25,3 +25,33 @@ pub const OP_MULTIPLY: OpCode = 6;
 
 /// Divide two values.
 pub const OP_DIVIDE: OpCode = 7;
+
+/// A nil literal.
+pub const OP_NIL: OpCode = 8;
+
+/// A boolean literal true.
+pub const OP_TRUE: OpCode = 9;
+
+/// A boolean literal false.
+pub const OP_FALSE: OpCode = 10;
+
+/// OP_NOT represents boolean negation like !true (false)
+pub const OP_NOT: OpCode = 11;
+
+/// Equality between two values. e.g. lhs == rhs
+pub const OP_EQUAL: OpCode = 12;
+
+/// Inequality between two values. e.g. lhs != rhs
+pub const OP_NOT_EQUAL: OpCode = 13;
+
+/// Greater comparison. e.g. lhs > rhs
+pub const OP_GREATER: OpCode = 14;
+
+/// Greater or equal comparison. e.g. lhs >= rhs
+pub const OP_GREATER_EQUAL: OpCode = 15;
+
+/// Less comparison. e.g. lhs < rhs
+pub const OP_LESS: OpCode = 16;
+
+/// Less or equal comparison. e.g. lhs <= rhs
+pub const OP_LESS_EQUAL: OpCode = 17;
