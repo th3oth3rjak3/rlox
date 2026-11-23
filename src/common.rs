@@ -1,4 +1,5 @@
 use crate::objects::ObjId;
+use crate::heap::Heap;
 
 /// Value represents a lox runtime value.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -69,4 +70,11 @@ impl Value {
             _ => unreachable!("expected object"),
         }
     }
+
+    /// is_string checks to see if the current value
+    /// is a heap string.
+    pub fn is_string(&self, heap: &Heap) -> bool {
+        self.is_obj() && heap.is_string(self.as_obj())
+    }
+
 }

@@ -176,15 +176,26 @@ impl VM {
     /// add does numerical addition on the top two values from the stack.
     #[inline(always)]
     fn add(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
-        if !self.stack.peek(0).is_number() || !self.stack.peek(1).is_number() {
-            self.runtime_error(chunk, "Operands must be numbers.");
-            return Err(RuntimeError);
+        if self.stack.peek(0).is_string(&self.heap) && self.stack.peek(1).is_string(&self.heap) {
+            return self.concatenate(chunk);
+        } else if self.stack.peek(0).is_number() && self.stack.peek(1).is_number() {
+            let right = self.stack.pop().as_number();
+            let left = self.stack.pop().as_number();
+            return self.push(Value::Number(left + right), chunk);
         }
 
-        let right = self.stack.pop().as_number();
-        let left = self.stack.pop().as_number();
+        self.runtime_error(chunk, "Operands must be numbers or strings.");
+        Err(RuntimeError)
+    }
 
-        self.push(Value::Number(left + right), chunk)
+    /// concatenate joins two string values together.
+    #[inline(always)]
+    fn concatenate(&mut self, chunk: &Chunk) -> Result<(), InterpretResult> {
+        let b = self.heap.as_string(self.stack.pop().as_obj());
+        let a = self.heap.as_string(self.stack.pop().as_obj());
+        let new_str = format!("{a}{b}");
+        let id = self.heap.intern_string(new_str);
+        self.push(Value::Obj(id), chunk)
     }
 
     /// subtract does numerical subtraction on the top two values from the stack.

@@ -29,12 +29,14 @@ impl Default for Heap {
     }
 }
 
+const INITIAL_CAPACITY: usize = 256;
+
 impl Heap {
     /// new creates a new Heap.
     pub fn new() -> Self {
         Self {
             strings: HashMap::new(),
-            objects: Vec::with_capacity(256),
+            objects: Vec::with_capacity(INITIAL_CAPACITY),
             free: Vec::new(),
             bytes_allocated: 0,
         }
@@ -75,6 +77,27 @@ impl Heap {
         self.objects.push(Some(obj));
 
         id
+    }
+
+    /// free_objects frees every object in the backing
+    /// storage.
+    pub fn free_objects(&mut self) {
+        self.strings = HashMap::new();
+        self.objects = Vec::with_capacity(INITIAL_CAPACITY);
+        self.free = Vec::new();
+        self.bytes_allocated = 0;
+    }
+
+    /// free_object frees a single object from the heap
+    /// and places its empty slot in the free-list.
+    pub fn free_object(&mut self, id: ObjId) {
+        let idx = id.0;
+        let obj = self.objects[idx].take();
+        if let Some(o) = obj {
+            let size = o.size();
+            self.bytes_allocated -= size;
+            self.free.push(idx);
+        }
     }
 
     /// is_string determines if the object at the provided
