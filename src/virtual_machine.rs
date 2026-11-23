@@ -103,6 +103,9 @@ impl VM {
                     print_value(self.stack.pop(), &self.heap);
                     println!();
                 }
+                OP_POP => {
+                    self.stack.pop();
+                }
                 _ => {
                     eprintln!("Unsupported opcode: {instruction}");
                     return Err(InterpretResult::RuntimeError);

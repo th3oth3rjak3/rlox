@@ -127,6 +127,8 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     pub fn statement(&mut self) {
         if self.match_token(TokenKind::Print) {
             self.print_statement();
+        } else {
+            self.expression_statement();
         }
     }
 
@@ -135,6 +137,13 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         self.expression();
         self.consume(TokenKind::Semicolon, "Expect ';' after value.");
         self.emit_byte(OP_PRINT);
+    }
+
+    /// expression_statement parses an expression for its side-effect.
+    pub fn expression_statement(&mut self) {
+        self.expression();
+        self.consume(TokenKind::Semicolon, "Expect ';' after expression.");
+        self.emit_byte(OP_POP);
     }
 
     /// expression is the entry point for the expression parser.

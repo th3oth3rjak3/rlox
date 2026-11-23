@@ -58,3 +58,6 @@ pub const OP_LESS_EQUAL: OpCode = 17;
 
 /// Print a value.
 pub const OP_PRINT: OpCode = 18;
+
+/// Pop a value from the stack.
+pub const OP_POP: OpCode = 19;

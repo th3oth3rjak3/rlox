@@ -61,6 +61,7 @@ impl<'a> Disassembler<'a> {
             OP_GREATER => self.simple_instruction("OP_GREATER", offset),
             OP_GREATER_EQUAL => self.simple_instruction("OP_GREATER_EQUAL", offset),
             OP_PRINT => self.simple_instruction("OP_PRINT", offset),
+            OP_POP => self.simple_instruction("OP_POP", offset),
             _ => {
                 println!("Unknown opcode {}", instruction);
                 offset + 1
