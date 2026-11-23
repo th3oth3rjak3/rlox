@@ -1,47 +1,76 @@
-use std::process::exit;
+use std::io::{Write, stdin, stdout};
 
-use crate::chunk::Chunk;
-use crate::common::Value;
-use crate::debug::disassemble_chunk;
-use crate::opcode::*;
 use crate::virtual_machine::{InterpretResult, VM};
 
 pub mod chunk;
 pub mod common;
 pub mod debug;
 pub mod opcode;
+pub mod scanner;
 pub mod stack;
+pub mod token;
 pub mod virtual_machine;
 
 fn main() {
+    let mut args = std::env::args();
+
+    if args.len() == 1 {
+        repl();
+    } else if args.len() == 2 {
+        let path = args
+            .nth(1)
+            .expect("args[1] should be present since len is 2");
+
+        run_file(path);
+    } else {
+        eprintln!("Usage: rlox [path]");
+        std::process::exit(64);
+    }
+}
+
+fn repl() {
     let mut vm = VM::new();
-    let mut chunk = Chunk::new();
 
-    // Evaluates: -((1.2 + 3.4) / 2.0) * 3.0 - 1.1 == -8.0
-    chunk.write_constant(Value::Number(1.2), 123);
-    chunk.write_constant(Value::Number(3.4), 123);
-    chunk.write(OP_ADD, 123);
+    let mut line_buffer = String::new();
+    let stdin = stdin();
+    let mut stdout = stdout();
 
-    chunk.write_constant(Value::Number(2.0), 123);
-    chunk.write(OP_DIVIDE, 123);
+    loop {
+        print!("> ");
+        if let Err(_) = stdout.flush() {
+            println!();
+            break;
+        }
 
-    chunk.write(OP_NEGATE, 123);
+        line_buffer.clear();
+        if let Err(_) = stdin.read_line(&mut line_buffer) {
+            println!();
+            break;
+        }
 
-    chunk.write_constant(Value::Number(3.0), 123);
-    chunk.write(OP_MULTIPLY, 123);
+        _ = vm.interpret(&line_buffer);
+    }
+}
 
-    chunk.write_constant(Value::Number(1.1), 123);
-    chunk.write(OP_SUBTRACT, 123);
+fn run_file(file: String) {
+    let source = load_source(&file);
+    let mut vm = VM::new();
 
-    chunk.write(OP_RETURN, 123);
-
-    disassemble_chunk(&chunk, "test chunk");
-
-    let exit_code = match vm.interpret(&chunk) {
-        InterpretResult::Ok => 0,
-        InterpretResult::CompileError => 1,
-        InterpretResult::RuntimeError => 2,
+    let exit_code = match vm.interpret(&source) {
+        Ok(()) => 0,
+        Err(InterpretResult::RuntimeError) => 70,
+        Err(InterpretResult::CompileError) => 65,
     };
 
-    exit(exit_code);
+    std::process::exit(exit_code);
+}
+
+fn load_source(file: &str) -> String {
+    match std::fs::read_to_string(file) {
+        Ok(s) => s,
+        Err(_) => {
+            eprintln!("Could not open file: {file}");
+            std::process::exit(74);
+        }
+    }
 }
