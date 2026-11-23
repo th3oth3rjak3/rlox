@@ -82,8 +82,6 @@ impl VM {
                     self.push(constant, chunk)?;
                 }
                 OP_RETURN => {
-                    print_value(self.stack.pop(), &self.heap);
-                    println!();
                     return Ok(());
                 }
                 OP_NEGATE => self.negate(chunk)?,
@@ -101,6 +99,10 @@ impl VM {
                 OP_LESS_EQUAL => self.less_equal(chunk)?,
                 OP_GREATER => self.greater(chunk)?,
                 OP_GREATER_EQUAL => self.greater_equal(chunk)?,
+                OP_PRINT => {
+                    print_value(self.stack.pop(), &self.heap);
+                    println!();
+                }
                 _ => {
                     eprintln!("Unsupported opcode: {instruction}");
                     return Err(InterpretResult::RuntimeError);
@@ -323,13 +325,12 @@ impl VM {
     fn compile(&mut self, source: &str) -> Option<Chunk> {
         let mut compiler = Compiler::new(source, &mut self.heap);
         compiler.advance();
-        compiler.expression();
-        compiler.consume(TokenKind::EOF, "Expect end of expression.");
-        compiler.end_compiler();
 
-        // TODO: make scanner scan tokens.
-        // TODO: have parser make chunk.
-        // TODO: return chunk without reference data.
+        while !compiler.match_token(TokenKind::EOF) {
+            compiler.declaration();
+        }
+
+        compiler.end_compiler();
 
         if compiler.had_error {
             None

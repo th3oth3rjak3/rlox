@@ -100,6 +100,43 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         self.error_at_current(message);
     }
 
+    /// match_token conditionally advances the compiler
+    /// if the current token matches the expected kind.
+    pub fn match_token(&mut self, kind: TokenKind) -> bool {
+        if !self.check(kind) {
+            return false;
+        }
+
+        self.advance();
+        true
+    }
+
+    /// check determines if the current token kind matches the expected
+    /// kind.
+    pub fn check(&self, kind: TokenKind) -> bool {
+        self.current.kind == kind
+    }
+
+    /// declaration is the entry point for parsing statements.
+    pub fn declaration(&mut self) {
+        self.statement();
+    }
+
+    /// statement is the distpatch function for all statement
+    /// handling.
+    pub fn statement(&mut self) {
+        if self.match_token(TokenKind::Print) {
+            self.print_statement();
+        }
+    }
+
+    /// print_statement emits a print statement.
+    pub fn print_statement(&mut self) {
+        self.expression();
+        self.consume(TokenKind::Semicolon, "Expect ';' after value.");
+        self.emit_byte(OP_PRINT);
+    }
+
     /// expression is the entry point for the expression parser.
     pub fn expression(&mut self) {
         self.parse_precedence(Precedence::Assignment);

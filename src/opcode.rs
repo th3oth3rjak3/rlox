@@ -55,3 +55,6 @@ pub const OP_LESS: OpCode = 16;
 
 /// Less or equal comparison. e.g. lhs <= rhs
 pub const OP_LESS_EQUAL: OpCode = 17;
+
+/// Print a value.
+pub const OP_PRINT: OpCode = 18;
