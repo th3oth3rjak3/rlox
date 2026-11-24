@@ -120,6 +120,10 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     /// declaration is the entry point for parsing statements.
     pub fn declaration(&mut self) {
         self.statement();
+
+        if self.panic_mode {
+            self.synchronize();
+        }
     }
 
     /// statement is the distpatch function for all statement
@@ -277,6 +281,31 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     /// current chunk.
     fn current_chunk_mut(&mut self) -> &mut Chunk {
         &mut self.chunk
+    }
+
+    /// synchronize is used to advance the compiler
+    /// past errors until the next statement boundary
+    /// when it has experienced a panic condition.
+    fn synchronize(&mut self) {
+        self.panic_mode = false;
+
+        while self.current.kind != TokenKind::EOF {
+            if self.previous.kind == TokenKind::Semicolon {
+                return;
+            }
+
+            match self.current.kind {
+                TokenKind::Class
+                | TokenKind::Fun
+                | TokenKind::Var
+                | TokenKind::For
+                | TokenKind::If
+                | TokenKind::While
+                | TokenKind::Print
+                | TokenKind::Return => return,
+                _ => self.advance(),
+            }
+        }
     }
 
     /// error produces an error at the previous token.
