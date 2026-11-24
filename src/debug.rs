@@ -62,6 +62,12 @@ impl<'a> Disassembler<'a> {
             OP_GREATER_EQUAL => self.simple_instruction("OP_GREATER_EQUAL", offset),
             OP_PRINT => self.simple_instruction("OP_PRINT", offset),
             OP_POP => self.simple_instruction("OP_POP", offset),
+            OP_DEFINE_GLOBAL => self.constant_instruction("OP_DEFINE_GLOBAL", offset),
+            OP_DEFINE_GLOBAL_LONG => {
+                self.constant_long_instruction("OP_DEFINE_GLOBAL_LONG", offset)
+            }
+            OP_GET_GLOBAL => self.constant_instruction("OP_GET_GLOBAL", offset),
+            OP_GET_GLOBAL_LONG => self.constant_long_instruction("OP_GET_GLOBAL_LONG", offset),
             _ => {
                 println!("Unknown opcode {}", instruction);
                 offset + 1
@@ -97,7 +103,7 @@ impl<'a> Disassembler<'a> {
     /// print_constant prints the instruction name, constant index, and
     /// formatted constant value.
     fn print_constant(&self, name: &str, index: usize) {
-        print!("{:<16} {:4} '", name, index);
+        print!("{:<24} {:4} '", name, index);
         print_value(self.chunk.constants[index], self.heap);
         println!("'");
     }

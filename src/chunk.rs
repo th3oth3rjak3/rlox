@@ -1,4 +1,4 @@
-use crate::{common::Value, opcode::*};
+use crate::common::Value;
 
 /// LineRun represents source line information
 /// associated with byte offsets. It's used as
@@ -64,26 +64,9 @@ impl Chunk {
         panic!("Invalid bytecode offset");
     }
 
-    /// write_constant adds a constant value to the chunk.
-    pub fn write_constant(&mut self, value: Value, line: usize) {
-        let index = self.add_constant(value);
-
-        if index <= u8::MAX as usize {
-            self.write(OP_CONSTANT, line);
-            self.write(index as u8, line);
-        } else {
-            assert!(index <= 0xFF_FFFF, "Too many constants");
-
-            self.write(OP_CONSTANT_LONG, line);
-            self.write((index & 0xFF) as u8, line);
-            self.write(((index >> 8) & 0xFF) as u8, line);
-            self.write(((index >> 16) & 0xFF) as u8, line);
-        }
-    }
-
     /// add_constant adds the constant value and produces
     /// the index value used to later lookup.
-    fn add_constant(&mut self, value: Value) -> usize {
+    pub fn add_constant(&mut self, value: Value) -> usize {
         self.constants.push(value);
         self.constants.len() - 1
     }

@@ -119,16 +119,81 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// declaration is the entry point for parsing statements.
     pub fn declaration(&mut self) {
-        self.statement();
+        if self.match_token(TokenKind::Var) {
+            self.var_declaration();
+        } else {
+            self.statement();
+        }
 
         if self.panic_mode {
             self.synchronize();
         }
     }
 
+    /// var_declaration parses a variable declaration.
+    fn var_declaration(&mut self) {
+        let global = self.parse_variable("Expect variable name.");
+
+        if self.match_token(TokenKind::Equal) {
+            self.expression();
+        } else {
+            self.emit_byte(OP_NIL);
+        }
+
+        self.consume(
+            TokenKind::Semicolon,
+            "Expect ';' after variable declaration.",
+        );
+        self.define_variable(global);
+    }
+
+    /// define_variable emits global variable declarations.
+    /// It supports variable width globals.
+    fn define_variable(&mut self, global: usize) {
+        if global <= u8::MAX as usize {
+            self.emit_byte(OP_DEFINE_GLOBAL);
+            self.emit_byte(global as u8);
+        } else {
+            self.emit_byte(OP_DEFINE_GLOBAL_LONG);
+            self.emit_wide_bytes(global);
+        }
+    }
+
+    /// named_variable gets a global variable.
+    fn named_variable(&mut self, name: Token) {
+        let arg = self.identifier_constant(name);
+        self.get_global_variable(arg);
+    }
+
+    /// get_global_variable emits a request to fetch a global variable.
+    fn get_global_variable(&mut self, global: usize) {
+        if global <= u8::MAX as usize {
+            self.emit_byte(OP_GET_GLOBAL);
+            self.emit_byte(global as u8);
+        } else {
+            self.emit_byte(OP_GET_GLOBAL_LONG);
+            self.emit_wide_bytes(global);
+        }
+    }
+
+    /// parse_variable parses the variable declaration and
+    /// returns its index from the constants table.
+    fn parse_variable(&mut self, msg: &str) -> usize {
+        self.consume(TokenKind::Identifier, msg);
+        self.identifier_constant(self.previous)
+    }
+
+    /// identifier_constant makes the constant and returns
+    /// its index from the constants table.
+    fn identifier_constant(&mut self, name: Token) -> usize {
+        let lexeme = name.lexeme(self.source);
+        let id = self.heap.intern_string(lexeme.to_owned());
+        self.make_constant(Value::Obj(id))
+    }
+
     /// statement is the distpatch function for all statement
     /// handling.
-    pub fn statement(&mut self) {
+    fn statement(&mut self) {
         if self.match_token(TokenKind::Print) {
             self.print_statement();
         } else {
@@ -137,21 +202,21 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     }
 
     /// print_statement emits a print statement.
-    pub fn print_statement(&mut self) {
+    fn print_statement(&mut self) {
         self.expression();
         self.consume(TokenKind::Semicolon, "Expect ';' after value.");
         self.emit_byte(OP_PRINT);
     }
 
     /// expression_statement parses an expression for its side-effect.
-    pub fn expression_statement(&mut self) {
+    fn expression_statement(&mut self) {
         self.expression();
         self.consume(TokenKind::Semicolon, "Expect ';' after expression.");
         self.emit_byte(OP_POP);
     }
 
     /// expression is the entry point for the expression parser.
-    pub fn expression(&mut self) {
+    fn expression(&mut self) {
         self.parse_precedence(Precedence::Assignment);
     }
 
@@ -223,6 +288,11 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         self.emit_constant(Value::Obj(id));
     }
 
+    /// variable emits a request to fetch a variable.
+    fn variable(&mut self) {
+        self.named_variable(self.previous);
+    }
+
     /// parse_precedence handles precedence ordering, looking
     /// up the different parse operations with rules.
     fn parse_precedence(&mut self, precedence: Precedence) {
@@ -242,11 +312,30 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         }
     }
 
+    /// write_constant adds a constant value to the chunk.
+    pub fn write_constant(&mut self, value: Value) {
+        let chunk = self.current_chunk_mut();
+        let index = chunk.add_constant(value);
+
+        if index <= u8::MAX as usize {
+            self.emit_byte(OP_CONSTANT);
+            self.emit_byte(index as u8);
+        } else {
+            self.emit_byte(OP_CONSTANT_LONG);
+            self.emit_wide_bytes(index);
+        }
+    }
+
+    /// make_constant adds a constant to the current chunk
+    /// and returns its index.
+    fn make_constant(&mut self, value: Value) -> usize {
+        let chunk = self.current_chunk_mut();
+        chunk.add_constant(value)
+    }
+
     /// emit_constant emits a constant value into the chunk.
     fn emit_constant(&mut self, value: Value) {
-        let line = self.previous.line;
-        let chunk = self.current_chunk_mut();
-        chunk.write_constant(value, line);
+        self.write_constant(value);
     }
 
     /// emit_byte writes a byte into the current chunk.
@@ -254,6 +343,15 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         let line = self.previous.line;
         let chunk = self.current_chunk_mut();
         chunk.write(byte, line);
+    }
+
+    /// emit_wide_bytes handles the emission of a 3-byte
+    /// index.
+    fn emit_wide_bytes(&mut self, global: usize) {
+        assert!(global <= 0xFF_FFFF, "Too many constants");
+        self.emit_byte((global & 0xFF) as u8);
+        self.emit_byte(((global >> 8) & 0xFF) as u8);
+        self.emit_byte(((global >> 16) & 0xFF) as u8);
     }
 
     /// end_compiler finishes compilation and must be called
@@ -365,6 +463,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
                 ParseRule::new(None, Some(Self::binary), Precedence::Comparison)
             }
             TokenKind::String => ParseRule::new(Some(Self::string), None, Precedence::None),
+            TokenKind::Identifier => ParseRule::new(Some(Self::variable), None, Precedence::None),
             _ => ParseRule::new(None, None, Precedence::None),
         }
     }

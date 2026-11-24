@@ -61,3 +61,15 @@ pub const OP_PRINT: OpCode = 18;
 
 /// Pop a value from the stack.
 pub const OP_POP: OpCode = 19;
+
+/// Define a global variable with a single byte index.
+pub const OP_DEFINE_GLOBAL: OpCode = 20;
+
+/// Define a global variable with a 3-byte index.
+pub const OP_DEFINE_GLOBAL_LONG: OpCode = 21;
+
+/// Get a global variable.
+pub const OP_GET_GLOBAL: OpCode = 22;
+
+/// Get a global variable with a wide index.
+pub const OP_GET_GLOBAL_LONG: OpCode = 23;

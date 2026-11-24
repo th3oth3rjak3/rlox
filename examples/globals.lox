@@ -1,0 +1,2 @@
+var g000 = nil;
+print 42;

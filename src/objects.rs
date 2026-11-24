@@ -4,7 +4,7 @@ use std::fmt::Display;
 /// garbage collector heap. ObjId is used instead of pointers
 /// for memory safety.
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ObjId(pub usize);
 
 impl Display for ObjId {

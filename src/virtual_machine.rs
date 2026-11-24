@@ -4,11 +4,14 @@ use crate::{
     compiler::Compiler,
     debug::{Disassembler, print_value},
     heap::Heap,
+    objects::ObjId,
     opcode::*,
     stack::ValueStack,
     token::TokenKind,
     virtual_machine::InterpretResult::RuntimeError,
 };
+
+use std::collections::HashMap;
 
 /// InterpretResult is the result
 /// of trying to interpret the source code.
@@ -24,6 +27,7 @@ pub struct VM {
     ip: usize,
     stack: ValueStack,
     heap: Heap,
+    globals: HashMap<ObjId, Value>,
 }
 
 impl Default for VM {
@@ -39,6 +43,7 @@ impl VM {
             ip: 0,
             stack: ValueStack::new(),
             heap: Heap::new(),
+            globals: HashMap::new(),
         }
     }
 
@@ -106,6 +111,36 @@ impl VM {
                 OP_POP => {
                     self.stack.pop();
                 }
+                OP_DEFINE_GLOBAL => {
+                    let name = self.read_string(chunk);
+                    self.globals.insert(name, self.stack.peek(0));
+                    self.stack.pop();
+                }
+                OP_DEFINE_GLOBAL_LONG => {
+                    let name = self.read_string_long(chunk);
+                    self.globals.insert(name, self.stack.peek(0));
+                    self.stack.pop();
+                }
+                OP_GET_GLOBAL => {
+                    let name = self.read_string(chunk);
+                    if let Some(&value) = self.globals.get(&name) {
+                        self.push(value, chunk)?;
+                    } else {
+                        let var_name = self.heap.as_string(name);
+                        self.runtime_error(chunk, &format!("Undefined variable '{var_name}'"));
+                        return Err(RuntimeError);
+                    }
+                }
+                OP_GET_GLOBAL_LONG => {
+                    let name = self.read_string_long(chunk);
+                    if let Some(&value) = self.globals.get(&name) {
+                        self.push(value, chunk)?;
+                    } else {
+                        let var_name = self.heap.as_string(name);
+                        self.runtime_error(chunk, &format!("Undefined variable '{var_name}'"));
+                        return Err(RuntimeError);
+                    }
+                }
                 _ => {
                     eprintln!("Unsupported opcode: {instruction}");
                     return Err(InterpretResult::RuntimeError);
@@ -164,6 +199,23 @@ impl VM {
             | (self.read_byte(chunk) as usize) << 16;
 
         chunk.constants[index]
+    }
+
+    /// read_string reads the constant. This function
+    /// returns the object id, the caller is expected to lookup
+    /// the string itself if that's needed from the heap.
+    #[inline(always)]
+    fn read_string(&mut self, chunk: &Chunk) -> ObjId {
+        self.read_constant(chunk).as_obj()
+    }
+
+    /// read_string_long reads a constant that has a 3-byte
+    /// index. This function returns the object id, the caller
+    /// is expected to lookup the string itself if that's needed
+    /// from the heap.
+    #[inline(always)]
+    fn read_string_long(&mut self, chunk: &Chunk) -> ObjId {
+        self.read_constant_long(chunk).as_obj()
     }
 
     /// negate does a numerical negation on the value at the top
