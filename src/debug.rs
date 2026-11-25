@@ -68,6 +68,8 @@ impl<'a> Disassembler<'a> {
             }
             OP_GET_GLOBAL => self.constant_instruction("OP_GET_GLOBAL", offset),
             OP_GET_GLOBAL_LONG => self.constant_long_instruction("OP_GET_GLOBAL_LONG", offset),
+            OP_SET_GLOBAL => self.constant_instruction("OP_SET_GLOBAL", offset),
+            OP_SET_GLOBAL_LONG => self.constant_long_instruction("OP_SET_GLOBAL_LONG", offset),
             _ => {
                 println!("Unknown opcode {}", instruction);
                 offset + 1

@@ -141,6 +141,26 @@ impl VM {
                         return Err(RuntimeError);
                     }
                 }
+                OP_SET_GLOBAL => {
+                    let name = self.read_string(chunk);
+                    if let Some(value) = self.globals.get_mut(&name) {
+                        *value = self.stack.peek(0);
+                    } else {
+                        let var_name = self.heap.as_string(name);
+                        self.runtime_error(chunk, &format!("Undefined variable '{var_name}'"));
+                        return Err(RuntimeError);
+                    }
+                }
+                OP_SET_GLOBAL_LONG => {
+                    let name = self.read_string_long(chunk);
+                    if let Some(value) = self.globals.get_mut(&name) {
+                        *value = self.stack.peek(0);
+                    } else {
+                        let var_name = self.heap.as_string(name);
+                        self.runtime_error(chunk, &format!("Undefined variable '{var_name}'"));
+                        return Err(RuntimeError);
+                    }
+                }
                 _ => {
                     eprintln!("Unsupported opcode: {instruction}");
                     return Err(InterpretResult::RuntimeError);

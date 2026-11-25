@@ -162,7 +162,12 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     /// named_variable gets a global variable.
     fn named_variable(&mut self, name: Token) {
         let arg = self.identifier_constant(name);
-        self.get_global_variable(arg);
+        if self.match_token(TokenKind::Equal) {
+            self.expression();
+            self.set_global_variable(arg);
+        } else {
+            self.get_global_variable(arg);
+        }
     }
 
     /// get_global_variable emits a request to fetch a global variable.
@@ -172,6 +177,17 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             self.emit_byte(global as u8);
         } else {
             self.emit_byte(OP_GET_GLOBAL_LONG);
+            self.emit_wide_bytes(global);
+        }
+    }
+
+    /// set_global_variable emits a request to set a global variable.
+    fn set_global_variable(&mut self, global: usize) {
+        if global <= u8::MAX as usize {
+            self.emit_byte(OP_SET_GLOBAL);
+            self.emit_byte(global as u8);
+        } else {
+            self.emit_byte(OP_SET_GLOBAL_LONG);
             self.emit_wide_bytes(global);
         }
     }
