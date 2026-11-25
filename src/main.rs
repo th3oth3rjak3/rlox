@@ -13,6 +13,7 @@ pub mod precedence;
 pub mod scanner;
 pub mod stack;
 pub mod token;
+pub mod token_cursor;
 pub mod virtual_machine;
 
 fn main() {

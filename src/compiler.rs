@@ -5,8 +5,8 @@ use crate::{
     heap::Heap,
     opcode::*,
     precedence::Precedence,
-    scanner::Scanner,
     token::{Token, TokenKind},
+    token_cursor::TokenCursor,
 };
 
 /// ParseFn is any function that can parse source.
@@ -39,9 +39,7 @@ impl<'src, 'heap> ParseRule<'src, 'heap> {
 /// produces executable bytecode chunks.
 pub struct Compiler<'src, 'heap> {
     pub source: &'src str,
-    pub scanner: Scanner<'src>,
-    pub current: Token,
-    pub previous: Token,
+    pub tokens: TokenCursor<'src>,
     pub had_error: bool,
     pub panic_mode: bool,
     pub chunk: Chunk,
@@ -52,19 +50,8 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     /// new creates a new compiler. The compiler must be primed with a
     /// call to advance in order to scan the first token.
     pub fn new(source: &'src str, heap: &'heap mut Heap) -> Self {
-        // error_token is expected to fill current and previous until the first real
-        // "advance" is called on the parser to populate the current token.
-        let error_token = Token::new(
-            TokenKind::Error("Parser did not advance before reading token."),
-            0,
-            0,
-            0,
-        );
-
         Self {
-            scanner: Scanner::new(source),
-            current: error_token,
-            previous: error_token,
+            tokens: TokenCursor::new(source),
             had_error: false,
             panic_mode: false,
             source,
@@ -94,11 +81,11 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     /// advance scasns the next token, bypassing an error
     /// tokens.
     pub fn advance(&mut self) {
-        self.previous = self.current;
+        self.tokens.begin_advance();
 
         loop {
-            self.current = self.scanner.scan_token();
-            if let TokenKind::Error(err) = self.current.kind {
+            self.tokens.scan_current();
+            if let TokenKind::Error(err) = self.tokens.current().kind {
                 self.error_at_current(err);
                 continue;
             }
@@ -110,7 +97,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     /// consume advances when the current token contains the expected
     /// kind. Otherwise it prints an error message.
     pub fn consume(&mut self, kind: TokenKind, message: &str) {
-        if self.current.kind == kind {
+        if self.tokens.current().kind == kind {
             self.advance();
             return;
         }
@@ -132,7 +119,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     /// check determines if the current token kind matches the expected
     /// kind.
     pub fn check(&self, kind: TokenKind) -> bool {
-        self.current.kind == kind
+        self.tokens.current().kind == kind
     }
 
     /// declaration is the entry point for parsing statements.
@@ -214,7 +201,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     /// returns its index from the constants table.
     fn parse_variable(&mut self, msg: &str) -> usize {
         self.consume(TokenKind::Identifier, msg);
-        self.identifier_constant(self.previous)
+        self.identifier_constant(self.tokens.previous())
     }
 
     /// identifier_constant makes the constant and returns
@@ -256,7 +243,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// number emits constant numeric value.
     fn number(&mut self, _: bool) {
-        let lexeme = self.previous.lexeme(self.source);
+        let lexeme = self.tokens.previous().lexeme(self.source);
         let value: f64 = lexeme
             .parse()
             .expect("Scanner produced invalid number literal.");
@@ -271,7 +258,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// unary emits a unary expression.
     fn unary(&mut self, _: bool) {
-        let operator = self.previous.kind;
+        let operator = self.tokens.previous().kind;
 
         self.parse_precedence(Precedence::Unary);
 
@@ -284,7 +271,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// binary emits a binary expression.
     fn binary(&mut self, _: bool) {
-        let operator = self.previous.kind;
+        let operator = self.tokens.previous().kind;
         let rule = self.get_rule(operator);
         self.parse_precedence(rule.precedence.next());
 
@@ -305,7 +292,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// literal emits a literal value.
     fn literal(&mut self, _: bool) {
-        match self.previous.kind {
+        match self.tokens.previous().kind {
             TokenKind::False => self.emit_byte(OP_FALSE),
             TokenKind::True => self.emit_byte(OP_TRUE),
             TokenKind::Nil => self.emit_byte(OP_NIL),
@@ -316,7 +303,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     /// string interns the string value in the heap and
     /// then emits the constant handle into the chunk.
     fn string(&mut self, _: bool) {
-        let lexeme = self.previous.lexeme(self.source);
+        let lexeme = self.tokens.previous().lexeme(self.source);
         let lexeme = lexeme[1..lexeme.len() - 1].to_owned();
         let id = self.heap.intern_string(lexeme);
         self.emit_constant(Value::Obj(id));
@@ -324,14 +311,14 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// variable emits a request to fetch a variable.
     fn variable(&mut self, can_assign: bool) {
-        self.named_variable(self.previous, can_assign);
+        self.named_variable(self.tokens.previous(), can_assign);
     }
 
     /// parse_precedence handles precedence ordering, looking
     /// up the different parse operations with rules.
     fn parse_precedence(&mut self, precedence: Precedence) {
         self.advance();
-        let prefix_rule = self.get_rule(self.previous.kind).prefix;
+        let prefix_rule = self.get_rule(self.tokens.previous().kind).prefix;
         if prefix_rule.is_none() {
             self.error("Expect expression.");
             return;
@@ -340,9 +327,9 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         let can_assign = precedence.can_assign();
         prefix_rule.unwrap()(self, can_assign);
 
-        while precedence <= self.get_rule(self.current.kind).precedence {
+        while precedence <= self.get_rule(self.tokens.current().kind).precedence {
             self.advance();
-            let infix_rule = self.get_rule(self.previous.kind).infix;
+            let infix_rule = self.get_rule(self.tokens.previous().kind).infix;
             infix_rule.expect("infix rule should not have been None")(self, can_assign);
         }
 
@@ -379,7 +366,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// emit_byte writes a byte into the current chunk.
     fn emit_byte(&mut self, byte: u8) {
-        let line = self.previous.line;
+        let line = self.tokens.previous().line;
         let chunk = self.current_chunk_mut();
         chunk.write(byte, line);
     }
@@ -426,12 +413,12 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     fn synchronize(&mut self) {
         self.panic_mode = false;
 
-        while self.current.kind != TokenKind::EOF {
-            if self.previous.kind == TokenKind::Semicolon {
+        while self.tokens.current().kind != TokenKind::EOF {
+            if self.tokens.previous().kind == TokenKind::Semicolon {
                 return;
             }
 
-            match self.current.kind {
+            match self.tokens.current().kind {
                 TokenKind::Class
                 | TokenKind::Fun
                 | TokenKind::Var
@@ -447,12 +434,12 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// error produces an error at the previous token.
     fn error(&mut self, message: &str) {
-        self.error_at(self.previous, message);
+        self.error_at(self.tokens.previous(), message);
     }
 
     /// error_at_current produces an error at the current token.
     fn error_at_current(&mut self, message: &str) {
-        self.error_at(self.current, message);
+        self.error_at(self.tokens.current(), message);
     }
 
     /// error_at is used to produce errors for different tokens.
