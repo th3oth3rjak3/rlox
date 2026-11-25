@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// ParseFn is any function that can parse source.
-type ParseFn<'src, 'heap> = fn(&mut Compiler<'src, 'heap>);
+type ParseFn<'src, 'heap> = fn(&mut Compiler<'src, 'heap>, bool);
 
 /// ParseRule is a rule that describes how to parse
 /// precedences.
@@ -160,9 +160,9 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     }
 
     /// named_variable gets a global variable.
-    fn named_variable(&mut self, name: Token) {
+    fn named_variable(&mut self, name: Token, can_assign: bool) {
         let arg = self.identifier_constant(name);
-        if self.match_token(TokenKind::Equal) {
+        if can_assign && self.match_token(TokenKind::Equal) {
             self.expression();
             self.set_global_variable(arg);
         } else {
@@ -237,7 +237,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     }
 
     /// number emits constant numeric value.
-    fn number(&mut self) {
+    fn number(&mut self, _: bool) {
         let lexeme = self.previous.lexeme(self.source);
         let value: f64 = lexeme
             .parse()
@@ -246,13 +246,13 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     }
 
     /// grouping emits a grouping expression.
-    fn grouping(&mut self) {
+    fn grouping(&mut self, _: bool) {
         self.expression();
         self.consume(TokenKind::RightParen, "Expect ')' after expression.");
     }
 
     /// unary emits a unary expression.
-    fn unary(&mut self) {
+    fn unary(&mut self, _: bool) {
         let operator = self.previous.kind;
 
         self.parse_precedence(Precedence::Unary);
@@ -265,7 +265,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     }
 
     /// binary emits a binary expression.
-    fn binary(&mut self) {
+    fn binary(&mut self, _: bool) {
         let operator = self.previous.kind;
         let rule = self.get_rule(operator);
         self.parse_precedence(rule.precedence.next());
@@ -286,7 +286,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     }
 
     /// literal emits a literal value.
-    fn literal(&mut self) {
+    fn literal(&mut self, _: bool) {
         match self.previous.kind {
             TokenKind::False => self.emit_byte(OP_FALSE),
             TokenKind::True => self.emit_byte(OP_TRUE),
@@ -297,7 +297,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// string interns the string value in the heap and
     /// then emits the constant handle into the chunk.
-    fn string(&mut self) {
+    fn string(&mut self, _: bool) {
         let lexeme = self.previous.lexeme(self.source);
         let lexeme = lexeme[1..lexeme.len() - 1].to_owned();
         let id = self.heap.intern_string(lexeme);
@@ -305,8 +305,8 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     }
 
     /// variable emits a request to fetch a variable.
-    fn variable(&mut self) {
-        self.named_variable(self.previous);
+    fn variable(&mut self, can_assign: bool) {
+        self.named_variable(self.previous, can_assign);
     }
 
     /// parse_precedence handles precedence ordering, looking
@@ -319,12 +319,17 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             return;
         }
 
-        prefix_rule.unwrap()(self);
+        let can_assign = precedence.can_assign();
+        prefix_rule.unwrap()(self, can_assign);
 
         while precedence <= self.get_rule(self.current.kind).precedence {
             self.advance();
             let infix_rule = self.get_rule(self.previous.kind).infix;
-            infix_rule.expect("infix rule should not have been None")(self);
+            infix_rule.expect("infix rule should not have been None")(self, can_assign);
+        }
+
+        if can_assign && self.match_token(TokenKind::Equal) {
+            self.error("Invalid assignment target.");
         }
     }
 

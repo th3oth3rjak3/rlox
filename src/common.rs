@@ -1,5 +1,5 @@
-use crate::objects::ObjId;
 use crate::heap::Heap;
+use crate::objects::ObjId;
 
 /// Value represents a lox runtime value.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -76,5 +76,4 @@ impl Value {
     pub fn is_string(&self, heap: &Heap) -> bool {
         self.is_obj() && heap.is_string(self.as_obj())
     }
-
 }

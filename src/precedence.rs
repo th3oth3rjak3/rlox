@@ -33,4 +33,10 @@ impl Precedence {
             Precedence::Call | Precedence::Primary => Precedence::Primary,
         }
     }
+
+    /// can_assign checks to see if the precedence is lower
+    /// than assignment.
+    pub fn can_assign(self) -> bool {
+        (self as u8) <= (Self::Assignment as u8)
+    }
 }

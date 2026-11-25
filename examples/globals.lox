@@ -1,2 +1,2 @@
-var g000 = nil;
-print 42;
+var myGlobal = 42;
+print myGlobal;
