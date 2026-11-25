@@ -8,6 +8,7 @@ pub mod compiler;
 pub mod debug;
 pub mod function_compiler;
 pub mod heap;
+pub mod locals;
 pub mod objects;
 pub mod opcode;
 pub mod precedence;

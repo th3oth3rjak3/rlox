@@ -407,22 +407,31 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         self.emit_byte(OP_RETURN);
     }
 
+    /// Returns the function compiler currently receiving emitted bytecode.
+    fn current_function(&self) -> &FunctionCompiler {
+        self.functions
+            .last()
+            .expect("compiler must have an active function compiler")
+    }
+
+    /// Returns mutable access to the function compiler currently receiving
+    /// emitted bytecode.
+    fn current_function_mut(&mut self) -> &mut FunctionCompiler {
+        self.functions
+            .last_mut()
+            .expect("compiler must have an active function compiler")
+    }
+
     /// current_chunk takes an immutable borrow to the current
     /// chunk.
     fn current_chunk(&self) -> &Chunk {
-        self.functions
-            .last()
-            .expect("compiler must have an active function")
-            .chunk()
+        self.current_function().chunk()
     }
 
     /// current_chunk_mut takes a mutable borrow to the
     /// current chunk.
     fn current_chunk_mut(&mut self) -> &mut Chunk {
-        self.functions
-            .last_mut()
-            .expect("compiler must have an active function")
-            .chunk_mut()
+        self.current_function_mut().chunk_mut()
     }
 
     /// synchronize is used to advance the compiler

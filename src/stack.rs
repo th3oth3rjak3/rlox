@@ -16,7 +16,7 @@ impl std::error::Error for StackOverflow {}
 /// can be placed in the current stack at a given
 /// time. This value may be adjusted later depending
 /// on profiling and needs.
-const STACK_MAX: usize = 256;
+const STACK_MAX: usize = 512;
 
 /// ValueStack is a stack implementation that is
 /// meant to be used in the VM during hot path operations.
