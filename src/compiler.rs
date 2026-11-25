@@ -2,6 +2,7 @@ use crate::{
     chunk::Chunk,
     common::Value,
     debug::Disassembler,
+    function_compiler::FunctionCompiler,
     heap::Heap,
     opcode::*,
     precedence::Precedence,
@@ -38,12 +39,12 @@ impl<'src, 'heap> ParseRule<'src, 'heap> {
 /// Compiler is a source code compiler that iterates over the source and
 /// produces executable bytecode chunks.
 pub struct Compiler<'src, 'heap> {
-    pub source: &'src str,
-    pub tokens: TokenCursor<'src>,
-    pub had_error: bool,
-    pub panic_mode: bool,
-    pub chunk: Chunk,
-    pub heap: &'heap mut Heap,
+    source: &'src str,
+    tokens: TokenCursor<'src>,
+    had_error: bool,
+    panic_mode: bool,
+    functions: Vec<FunctionCompiler>,
+    heap: &'heap mut Heap,
 }
 
 impl<'src, 'heap> Compiler<'src, 'heap> {
@@ -55,7 +56,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             had_error: false,
             panic_mode: false,
             source,
-            chunk: Chunk::new(),
+            functions: vec![FunctionCompiler::new()],
             heap,
         }
     }
@@ -74,13 +75,18 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         if self.had_error {
             None
         } else {
-            Some(self.chunk)
+            Some(
+                self.functions
+                    .pop()
+                    .expect("compiler must have a script function")
+                    .into_chunk(),
+            )
         }
     }
 
     /// advance scasns the next token, bypassing an error
     /// tokens.
-    pub fn advance(&mut self) {
+    fn advance(&mut self) {
         self.tokens.begin_advance();
 
         loop {
@@ -96,7 +102,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// consume advances when the current token contains the expected
     /// kind. Otherwise it prints an error message.
-    pub fn consume(&mut self, kind: TokenKind, message: &str) {
+    fn consume(&mut self, kind: TokenKind, message: &str) {
         if self.tokens.current().kind == kind {
             self.advance();
             return;
@@ -107,7 +113,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// match_token conditionally advances the compiler
     /// if the current token matches the expected kind.
-    pub fn match_token(&mut self, kind: TokenKind) -> bool {
+    fn match_token(&mut self, kind: TokenKind) -> bool {
         if !self.check(kind) {
             return false;
         }
@@ -118,12 +124,12 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// check determines if the current token kind matches the expected
     /// kind.
-    pub fn check(&self, kind: TokenKind) -> bool {
+    fn check(&self, kind: TokenKind) -> bool {
         self.tokens.current().kind == kind
     }
 
     /// declaration is the entry point for parsing statements.
-    pub fn declaration(&mut self) {
+    fn declaration(&mut self) {
         if self.match_token(TokenKind::Var) {
             self.var_declaration();
         } else {
@@ -339,7 +345,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     }
 
     /// write_constant adds a constant value to the chunk.
-    pub fn write_constant(&mut self, value: Value) {
+    fn write_constant(&mut self, value: Value) {
         let chunk = self.current_chunk_mut();
         let index = chunk.add_constant(value);
 
@@ -382,13 +388,13 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// end_compiler finishes compilation and must be called
     /// in order to produce the final return statement.
-    pub fn end_compiler(&mut self) {
+    fn end_compiler(&mut self) {
         self.emit_return();
 
         cfg_select! {
             debug_assertions => {
                 if !self.had_error {
-                    let disassembler = Disassembler::new(&self.chunk, self.heap);
+                    let disassembler = Disassembler::new(self.current_chunk(), self.heap);
                     disassembler.disassemble_chunk("code");
                 }
             }
@@ -401,10 +407,22 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         self.emit_byte(OP_RETURN);
     }
 
+    /// current_chunk takes an immutable borrow to the current
+    /// chunk.
+    fn current_chunk(&self) -> &Chunk {
+        self.functions
+            .last()
+            .expect("compiler must have an active function")
+            .chunk()
+    }
+
     /// current_chunk_mut takes a mutable borrow to the
     /// current chunk.
     fn current_chunk_mut(&mut self) -> &mut Chunk {
-        &mut self.chunk
+        self.functions
+            .last_mut()
+            .expect("compiler must have an active function")
+            .chunk_mut()
     }
 
     /// synchronize is used to advance the compiler

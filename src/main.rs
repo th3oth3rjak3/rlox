@@ -6,6 +6,7 @@ pub mod chunk;
 pub mod common;
 pub mod compiler;
 pub mod debug;
+pub mod function_compiler;
 pub mod heap;
 pub mod objects;
 pub mod opcode;
