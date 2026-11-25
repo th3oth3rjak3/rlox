@@ -6,16 +6,12 @@ pub mod chunk;
 pub mod common;
 pub mod compiler;
 pub mod debug;
-pub mod function_compiler;
 pub mod heap;
-pub mod locals;
 pub mod objects;
 pub mod opcode;
-pub mod precedence;
 pub mod scanner;
 pub mod stack;
 pub mod token;
-pub mod token_cursor;
 pub mod virtual_machine;
 
 fn main() {

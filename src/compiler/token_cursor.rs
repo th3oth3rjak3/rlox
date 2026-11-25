@@ -37,7 +37,7 @@ impl<'src> TokenCursor<'src> {
     }
 
     /// Scans and stores the next token as the current token.
-    pub fn scan_current(&mut self) {
+    pub fn scan_next_token(&mut self) {
         self.current = self.scanner.scan_token();
     }
 

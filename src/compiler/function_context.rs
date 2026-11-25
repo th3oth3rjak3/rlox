@@ -1,6 +1,7 @@
 use std::array;
 
-use crate::{chunk::Chunk, locals::Local};
+use super::locals::Local;
+use crate::chunk::Chunk;
 
 /// UINT8_COUNT represents the maximum number of local
 /// variables that can be stored in a function.
@@ -8,20 +9,20 @@ const UINT8_COUNT: usize = u8::MAX as usize + 1;
 
 /// FunctionCompiler owns the bytecode and function-specific compile state
 /// for one active Lox function.
-pub struct FunctionCompiler {
+pub struct FunctionContext {
     chunk: Chunk,
     locals: [Option<Local>; UINT8_COUNT],
     local_count: usize,
     scope_depth: usize,
 }
 
-impl Default for FunctionCompiler {
+impl Default for FunctionContext {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl FunctionCompiler {
+impl FunctionContext {
     /// Creates an empty function compiler.
     pub fn new() -> Self {
         Self {
@@ -48,7 +49,8 @@ impl FunctionCompiler {
     }
 
     /// Returns the local variable at an active local-slot index.
-    pub fn local(&self, index: usize) -> &Local {
+    #[allow(dead_code)]
+    pub fn local_at(&self, index: usize) -> &Local {
         assert!(index < self.local_count, "local index must be active");
 
         self.locals[index]
@@ -57,7 +59,8 @@ impl FunctionCompiler {
     }
 
     /// Returns mutable access to the local variable at an active local-slot index.
-    pub fn local_mut(&mut self, index: usize) -> &mut Local {
+    #[allow(dead_code)]
+    pub fn local_at_mut(&mut self, index: usize) -> &mut Local {
         assert!(index < self.local_count, "local index must be active");
 
         self.locals[index]
@@ -66,6 +69,7 @@ impl FunctionCompiler {
     }
 
     /// Adds a local variable to the next available local slot.
+    #[allow(dead_code)]
     pub fn add_local(&mut self, local: Local) {
         assert!(self.local_count < UINT8_COUNT, "too many local variables");
 
@@ -74,7 +78,8 @@ impl FunctionCompiler {
     }
 
     /// Removes and returns the most recently added local variable.
-    pub fn pop_local(&mut self) -> Local {
+    #[allow(dead_code)]
+    pub fn pop_last_local(&mut self) -> Local {
         assert!(
             self.local_count > 0,
             "cannot remove a local from an empty list"
@@ -88,6 +93,7 @@ impl FunctionCompiler {
     }
 
     /// Returns the current lexical scope nesting depth.
+    #[allow(dead_code)]
     pub fn scope_depth(&self) -> usize {
         self.scope_depth
     }
