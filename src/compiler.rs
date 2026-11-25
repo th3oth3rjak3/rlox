@@ -73,6 +73,24 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         }
     }
 
+    /// compile compiles all the source code and
+    /// produces a chunk when it succeeds.
+    pub fn compile(mut self) -> Option<Chunk> {
+        self.advance();
+
+        while !self.match_token(TokenKind::EOF) {
+            self.declaration();
+        }
+
+        self.end_compiler();
+
+        if self.had_error {
+            None
+        } else {
+            Some(self.chunk)
+        }
+    }
+
     /// advance scasns the next token, bypassing an error
     /// tokens.
     pub fn advance(&mut self) {

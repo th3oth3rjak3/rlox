@@ -7,7 +7,6 @@ use crate::{
     objects::ObjId,
     opcode::*,
     stack::ValueStack,
-    token::TokenKind,
     virtual_machine::InterpretResult::RuntimeError,
 };
 
@@ -398,19 +397,6 @@ impl VM {
 
     /// compile takes the source code and produces a new chunk to run.
     fn compile(&mut self, source: &str) -> Option<Chunk> {
-        let mut compiler = Compiler::new(source, &mut self.heap);
-        compiler.advance();
-
-        while !compiler.match_token(TokenKind::EOF) {
-            compiler.declaration();
-        }
-
-        compiler.end_compiler();
-
-        if compiler.had_error {
-            None
-        } else {
-            Some(compiler.chunk)
-        }
+        Compiler::new(source, &mut self.heap).compile()
     }
 }
