@@ -5,7 +5,7 @@ use crate::chunk::Chunk;
 
 /// UINT8_COUNT represents the maximum number of local
 /// variables that can be stored in a function.
-const UINT8_COUNT: usize = u8::MAX as usize + 1;
+pub const UINT8_COUNT: usize = u8::MAX as usize + 1;
 
 /// FunctionCompiler owns the bytecode and function-specific compile state
 /// for one active Lox function.
@@ -48,6 +48,11 @@ impl FunctionContext {
         self.chunk
     }
 
+    /// Returns the count of local variables.
+    pub fn local_count(&self) -> usize {
+        self.local_count
+    }
+
     /// Returns the local variable at an active local-slot index.
     #[allow(dead_code)]
     pub fn local_at(&self, index: usize) -> &Local {
@@ -69,16 +74,12 @@ impl FunctionContext {
     }
 
     /// Adds a local variable to the next available local slot.
-    #[allow(dead_code)]
     pub fn add_local(&mut self, local: Local) {
-        assert!(self.local_count < UINT8_COUNT, "too many local variables");
-
         self.locals[self.local_count] = Some(local);
         self.local_count += 1;
     }
 
     /// Removes and returns the most recently added local variable.
-    #[allow(dead_code)]
     pub fn pop_last_local(&mut self) -> Local {
         assert!(
             self.local_count > 0,
@@ -93,7 +94,6 @@ impl FunctionContext {
     }
 
     /// Returns the current lexical scope nesting depth.
-    #[allow(dead_code)]
     pub fn scope_depth(&self) -> usize {
         self.scope_depth
     }

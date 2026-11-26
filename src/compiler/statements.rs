@@ -39,6 +39,10 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     pub(super) fn compile_statement(&mut self) {
         if self.match_current_token(TokenKind::Print) {
             self.compile_print_statement();
+        } else if self.match_current_token(TokenKind::LeftBrace) {
+            self.begin_scope();
+            self.compile_block_statement();
+            self.end_scope();
         } else {
             self.compile_expression_statement();
         }
@@ -56,5 +60,16 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         self.compile_expression();
         self.consume_current_token(TokenKind::Semicolon, "Expect ';' after expression.");
         self.emit_byte(OP_POP);
+    }
+
+    /// Compiles a block statement enclosed in curly braces.
+    pub(super) fn compile_block_statement(&mut self) {
+        while !self.current_token_is(TokenKind::RightBrace)
+            && !self.current_token_is(TokenKind::EOF)
+        {
+            self.compile_declaration();
+        }
+
+        self.consume_current_token(TokenKind::RightBrace, "Expect '}' after block.");
     }
 }
