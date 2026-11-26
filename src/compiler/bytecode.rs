@@ -14,7 +14,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             self.emit_byte(index as u8);
         } else {
             self.emit_byte(OP_CONSTANT_LONG);
-            self.emit_wide_bytes(index);
+            self.emit_u24(index);
         }
     }
 
@@ -42,13 +42,36 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         self.emit_byte(OP_RETURN);
     }
 
-    /// emit_wide_bytes handles the emission of a 3-byte
-    /// index.
-    pub(super) fn emit_wide_bytes(&mut self, global: usize) {
+    /// Emits a 3-byte value which usually represents a constant
+    /// index greater than 255.
+    pub(super) fn emit_u24(&mut self, global: usize) {
         assert!(global <= 0xFF_FFFF, "Too many constants");
         self.emit_byte((global & 0xFF) as u8);
         self.emit_byte(((global >> 8) & 0xFF) as u8);
         self.emit_byte(((global >> 16) & 0xFF) as u8);
+    }
+
+    /// Emits a jump instruction and supplies placeholder bytes for
+    /// the jump location. The caller must patch the jump instruction
+    /// once the location is known.
+    pub(super) fn emit_jump(&mut self, opcode: OpCode) -> usize {
+        self.emit_byte(opcode);
+        self.emit_byte(0xFF);
+        self.emit_byte(0xFF);
+        self.current_chunk().code.len() - 2
+    }
+
+    /// Back-patches a jump instruction once the offset location is known.
+    /// Callers must use this after emitting a jump instruction.
+    pub(super) fn patch_jump(&mut self, offset: usize) {
+        // -2 to adjust for the bytecode for the jump offset itself.
+        let jump = self.current_chunk().code.len() - offset - 2;
+        if jump > u16::MAX as usize {
+            self.error("Too much code to jump over.");
+        }
+
+        self.current_chunk_mut().code[offset] = (jump >> 8) as u8 & 0xFF;
+        self.current_chunk_mut().code[offset + 1] = jump as u8 & 0xFF;
     }
 
     /// current_chunk takes an immutable borrow to the current

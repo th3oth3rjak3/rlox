@@ -88,7 +88,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             self.emit_byte(global as u8);
         } else {
             self.emit_byte(OP_DEFINE_GLOBAL_LONG);
-            self.emit_wide_bytes(global);
+            self.emit_u24(global);
         }
     }
 
@@ -108,7 +108,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             self.emit_byte(global as u8);
         } else {
             self.emit_byte(OP_GET_GLOBAL_LONG);
-            self.emit_wide_bytes(global);
+            self.emit_u24(global);
         }
     }
 
@@ -119,7 +119,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             self.emit_byte(global as u8);
         } else {
             self.emit_byte(OP_SET_GLOBAL_LONG);
-            self.emit_wide_bytes(global);
+            self.emit_u24(global);
         }
     }
 

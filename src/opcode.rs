@@ -85,3 +85,9 @@ pub const OP_GET_LOCAL: OpCode = 26;
 
 /// Set a local variable.
 pub const OP_SET_LOCAL: OpCode = 27;
+
+/// Jump when a condition is false.
+pub const OP_JUMP_IF_FALSE: OpCode = 28;
+
+/// Jump unconditionally.
+pub const OP_JUMP: OpCode = 29;

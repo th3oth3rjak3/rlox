@@ -72,6 +72,8 @@ impl<'a> Disassembler<'a> {
             OP_SET_GLOBAL_LONG => self.constant_long_instruction("OP_SET_GLOBAL_LONG", offset),
             OP_GET_LOCAL => self.byte_instruction("OP_GET_LOCAL", self.chunk, offset),
             OP_SET_LOCAL => self.byte_instruction("OP_SET_LOCAL", self.chunk, offset),
+            OP_JUMP => self.jump_instruction("OP_JUMP", self.chunk, 1, offset),
+            OP_JUMP_IF_FALSE => self.jump_instruction("OP_JUMP_IF_FALSE", self.chunk, 1, offset),
             _ => {
                 println!("Unknown opcode {}", instruction);
                 offset + 1
@@ -118,6 +120,19 @@ impl<'a> Disassembler<'a> {
         println!("{:<24} {:4}", name, slot);
 
         offset + 2
+    }
+
+    /// print a jump instruction with its jump direction.
+    fn jump_instruction(&self, name: &str, chunk: &Chunk, sign: isize, offset: usize) -> usize {
+        let mut jump = (chunk.code[offset + 1] as u16) << 8;
+        jump |= chunk.code[offset + 1] as u16;
+        println!(
+            "{:24} {:4} -> {}",
+            name,
+            offset,
+            (offset + 3) as isize + (sign * jump as isize)
+        );
+        offset + 3
     }
 }
 

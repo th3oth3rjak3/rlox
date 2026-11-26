@@ -1,0 +1,14 @@
+var control = true;
+
+if (control) {
+	print "was true";
+	control = false;
+} else {
+	print "shouldn't go here";
+}
+
+if (control) {
+	print "shouldn't go here";
+} else {
+	print "was false";
+}

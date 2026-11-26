@@ -39,6 +39,8 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     pub(super) fn compile_statement(&mut self) {
         if self.match_current_token(TokenKind::Print) {
             self.compile_print_statement();
+        } else if self.match_current_token(TokenKind::If) {
+            self.compile_if_statement();
         } else if self.match_current_token(TokenKind::LeftBrace) {
             self.begin_scope();
             self.compile_block_statement();
@@ -53,6 +55,25 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         self.compile_expression();
         self.consume_current_token(TokenKind::Semicolon, "Expect ';' after value.");
         self.emit_byte(OP_PRINT);
+    }
+
+    /// Compile an if statement with an optional else branch.
+    pub(super) fn compile_if_statement(&mut self) {
+        self.consume_current_token(TokenKind::LeftParen, "Expect '(' after 'if'.");
+        self.compile_expression();
+        self.consume_current_token(TokenKind::RightParen, "Expect ')' after condition.");
+        let then_jump = self.emit_jump(OP_JUMP_IF_FALSE);
+        self.emit_byte(OP_POP);
+        self.compile_statement();
+        let else_jump = self.emit_jump(OP_JUMP);
+        self.patch_jump(then_jump);
+        self.emit_byte(OP_POP);
+
+        if self.match_current_token(TokenKind::Else) {
+            self.compile_statement();
+        }
+
+        self.patch_jump(else_jump);
     }
 
     /// Compiles an expression statement and discards its resulting value.

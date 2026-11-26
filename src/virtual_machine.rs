@@ -163,6 +163,16 @@ impl VM {
                     let value = self.stack.peek(0);
                     self.stack.set_at(slot, value);
                 }
+                OP_JUMP_IF_FALSE => {
+                    let offset = self.read_short(chunk);
+                    if self.stack.peek(0).is_falsey() {
+                        self.ip += offset as usize;
+                    }
+                }
+                OP_JUMP => {
+                    let offset = self.read_short(chunk);
+                    self.ip += offset as usize;
+                }
                 _ => {
                     eprintln!("Unsupported opcode: {instruction}");
                     return Err(InterpretResult::RuntimeError);
@@ -198,9 +208,15 @@ impl VM {
     /// for the next read.
     #[inline(always)]
     fn read_byte(&mut self, chunk: &Chunk) -> u8 {
-        let byte = chunk.code[self.ip];
         self.ip += 1;
-        byte
+        chunk.code[self.ip - 1]
+    }
+
+    /// read_short reads two bytes at the instruction pointer.
+    #[inline(always)]
+    fn read_short(&mut self, chunk: &Chunk) -> u16 {
+        self.ip += 2;
+        ((chunk.code[self.ip - 2] as u16) << 8) | (chunk.code[self.ip - 1] as u16)
     }
 
     /// read_constant reads the index at the instruction
