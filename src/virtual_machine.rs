@@ -1,13 +1,6 @@
 use crate::{
-    chunk::Chunk,
-    common::Value,
-    compiler::Compiler,
-    debug::{Disassembler, print_value},
-    heap::Heap,
-    objects::ObjId,
-    opcode::*,
-    stack::ValueStack,
-    virtual_machine::InterpretResult::RuntimeError,
+    chunk::Chunk, common::Value, compiler::Compiler, debug::print_value, heap::Heap,
+    objects::ObjId, opcode::*, stack::ValueStack, virtual_machine::InterpretResult::RuntimeError,
 };
 
 use std::collections::HashMap;
@@ -70,7 +63,7 @@ impl VM {
             cfg_select! {
                 debug_assertions => {
                     self.stack.print(&self.heap);
-                    Disassembler::new(chunk, &self.heap).disassemble_instruction(self.ip);
+                    crate::debug::Disassembler::new(chunk, &self.heap).disassemble_instruction(self.ip);
                 }
                 _ => { /* NO-OP */ }
             }

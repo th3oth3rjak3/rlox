@@ -1,7 +1,6 @@
 use crate::chunk::Chunk;
 use crate::common::Value;
 use crate::compiler::Compiler;
-use crate::debug::Disassembler;
 use crate::opcode::*;
 
 impl<'src, 'heap> Compiler<'src, 'heap> {
@@ -54,6 +53,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// current_chunk takes an immutable borrow to the current
     /// chunk.
+    #[allow(dead_code)]
     pub(super) fn current_chunk(&self) -> &Chunk {
         self.current_function().chunk()
     }
@@ -72,7 +72,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         cfg_select! {
             debug_assertions => {
                 if !self.had_error {
-                    let disassembler = Disassembler::new(self.current_chunk(), self.heap);
+                    let disassembler = crate::debug::Disassembler::new(self.current_chunk(), self.heap);
                     disassembler.disassemble_chunk("code");
                 }
             }

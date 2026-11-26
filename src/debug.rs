@@ -117,7 +117,7 @@ impl<'a> Disassembler<'a> {
         let slot = chunk.code[offset + 1];
         println!("{:<24} {:4}", name, slot);
 
-        return offset + 2;
+        offset + 2
     }
 }
 

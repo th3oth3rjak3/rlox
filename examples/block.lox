@@ -2,7 +2,7 @@ var thing = 42;
 print thing;
 
 {
-	var thing = thing;
+	var thing = "a thing";
 	print thing;
 	thing = "another thing";
 	print thing;
