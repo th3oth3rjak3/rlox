@@ -41,6 +41,8 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             self.compile_print_statement();
         } else if self.match_current_token(TokenKind::If) {
             self.compile_if_statement();
+        } else if self.match_current_token(TokenKind::While) {
+            self.compile_while_statement();
         } else if self.match_current_token(TokenKind::LeftBrace) {
             self.begin_scope();
             self.compile_block_statement();
@@ -74,6 +76,22 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         }
 
         self.patch_jump(else_jump);
+    }
+
+    /// Compile a while loop statement.
+    pub(super) fn compile_while_statement(&mut self) {
+        let loop_start = self.current_chunk().code.len();
+        self.consume_current_token(TokenKind::LeftParen, "Expect '(' after 'while'.");
+        self.compile_expression();
+        self.consume_current_token(TokenKind::RightParen, "Expect ')' after condition.");
+
+        let exit_jump = self.emit_jump(OP_JUMP_IF_FALSE);
+        self.emit_byte(OP_POP);
+        self.compile_statement();
+        self.emit_loop(loop_start);
+
+        self.patch_jump(exit_jump);
+        self.emit_byte(OP_POP);
     }
 
     /// Compiles an expression statement and discards its resulting value.

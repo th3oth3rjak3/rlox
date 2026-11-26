@@ -11,11 +11,9 @@ impl Precedence {
     pub const ASSIGNMENT: Self = Self(1);
 
     /// Logical-or precedence.
-    #[allow(dead_code)]
     pub const OR: Self = Self(2);
 
     /// Logical-and precedence.
-    #[allow(dead_code)]
     pub const AND: Self = Self(3);
 
     /// Equality precedence.

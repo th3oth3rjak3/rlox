@@ -93,6 +93,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         }
     }
 
+    /// Compiles a local variable.
     pub(super) fn compile_local_variable(&mut self, arg: usize, is_assignment: bool) {
         if is_assignment {
             self.compile_expression();
@@ -102,6 +103,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         }
     }
 
+    /// Compiles a global variable.
     pub(super) fn compile_global_variable(&mut self, name: Token, is_assignment: bool) {
         let arg = self.add_identifier_constant(name);
         if is_assignment {
@@ -110,6 +112,26 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
         } else {
             self.emit_get_global(arg);
         }
+    }
+
+    /// Compiles an and expression with short-circuiting behavior.
+    pub(super) fn compile_and(&mut self, _: bool) {
+        let end_jump = self.emit_jump(OP_JUMP_IF_FALSE);
+        self.emit_byte(OP_POP);
+        self.compile_expression_with_precedence(Precedence::AND);
+        self.patch_jump(end_jump);
+    }
+
+    /// Compiles an or expression with short-circuiting behavior.
+    pub(super) fn compile_or(&mut self, _: bool) {
+        let else_jump = self.emit_jump(OP_JUMP_IF_FALSE);
+        let end_jump = self.emit_jump(OP_JUMP);
+
+        self.patch_jump(else_jump);
+        self.emit_byte(OP_POP);
+
+        self.compile_expression_with_precedence(Precedence::OR);
+        self.patch_jump(end_jump);
     }
 
     /// Compiles an expression using the provided precedence.
@@ -193,6 +215,8 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
                 None,
                 Precedence::NONE,
             ),
+            TokenKind::And => ParseRule::new(None, Some(Self::compile_and), Precedence::AND),
+            TokenKind::Or => ParseRule::new(None, Some(Self::compile_or), Precedence::OR),
             _ => ParseRule::new(None, None, Precedence::NONE),
         }
     }

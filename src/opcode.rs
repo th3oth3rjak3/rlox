@@ -91,3 +91,6 @@ pub const OP_JUMP_IF_FALSE: OpCode = 28;
 
 /// Jump unconditionally.
 pub const OP_JUMP: OpCode = 29;
+
+/// Loop instruction.
+pub const OP_LOOP: OpCode = 30;

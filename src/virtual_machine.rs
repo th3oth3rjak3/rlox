@@ -173,6 +173,10 @@ impl VM {
                     let offset = self.read_short(chunk);
                     self.ip += offset as usize;
                 }
+                OP_LOOP => {
+                    let offset = self.read_short(chunk);
+                    self.ip -= offset as usize;
+                }
                 _ => {
                     eprintln!("Unsupported opcode: {instruction}");
                     return Err(InterpretResult::RuntimeError);

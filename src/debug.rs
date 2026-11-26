@@ -74,6 +74,7 @@ impl<'a> Disassembler<'a> {
             OP_SET_LOCAL => self.byte_instruction("OP_SET_LOCAL", self.chunk, offset),
             OP_JUMP => self.jump_instruction("OP_JUMP", self.chunk, 1, offset),
             OP_JUMP_IF_FALSE => self.jump_instruction("OP_JUMP_IF_FALSE", self.chunk, 1, offset),
+            OP_LOOP => self.jump_instruction("OP_LOOP", self.chunk, -1, offset),
             _ => {
                 println!("Unknown opcode {}", instruction);
                 offset + 1

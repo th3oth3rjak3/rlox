@@ -70,13 +70,24 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             self.error("Too much code to jump over.");
         }
 
-        self.current_chunk_mut().code[offset] = (jump >> 8) as u8;
-        self.current_chunk_mut().code[offset + 1] = jump as u8;
+        self.current_chunk_mut().code[offset] = ((jump >> 8) & 0xFF) as u8;
+        self.current_chunk_mut().code[offset + 1] = (jump & 0xFF) as u8;
+    }
+
+    /// Emit a loop instruction.
+    pub(super) fn emit_loop(&mut self, start: usize) {
+        self.emit_byte(OP_LOOP);
+        let offset = self.current_chunk().code.len() - start + 2;
+        if offset > u16::MAX as usize {
+            self.error("Loop body too large.");
+        }
+
+        self.emit_byte(((offset >> 8) & 0xFF) as u8);
+        self.emit_byte((offset & 0xFF) as u8)
     }
 
     /// current_chunk takes an immutable borrow to the current
     /// chunk.
-    #[allow(dead_code)]
     pub(super) fn current_chunk(&self) -> &Chunk {
         self.current_function().chunk()
     }
