@@ -83,6 +83,26 @@ impl ValueStack {
         self.backing_storage[self.stack_top - 1 - distance]
     }
 
+    /// Peek at the value on the stack at the index.
+    pub fn peek_at(&self, index: usize) -> Value {
+        debug_assert!(
+            index < self.stack_top,
+            "Peek at index ({index}) out of bounds for stack height ({})",
+            self.stack_top
+        );
+        self.backing_storage[index]
+    }
+
+    /// Set the stack value at the provided index.
+    pub fn set_at(&mut self, index: usize, value: Value) {
+        debug_assert!(
+            index < self.stack_top,
+            "Set at index ({index}) is out of bounds for stack height ({})",
+            self.stack_top
+        );
+        self.backing_storage[index] = value;
+    }
+
     /// as_slice returns the active values in the stack.
     pub fn as_slice(&self) -> &[Value] {
         &self.backing_storage[0..self.stack_top]

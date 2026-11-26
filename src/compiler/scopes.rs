@@ -19,9 +19,13 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             if local_count > 0 {
                 let local = self.current_function().local_at(local_count - 1);
 
-                if local.depth as usize > scope_depth {
+                if let Some(d) = local.depth
+                    && d > scope_depth
+                {
                     self.emit_byte(OP_POP);
                     self.current_function_mut().pop_last_local();
+                } else {
+                    panic!("local missing scope depth");
                 }
             } else {
                 break;

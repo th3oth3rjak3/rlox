@@ -70,6 +70,8 @@ impl<'a> Disassembler<'a> {
             OP_GET_GLOBAL_LONG => self.constant_long_instruction("OP_GET_GLOBAL_LONG", offset),
             OP_SET_GLOBAL => self.constant_instruction("OP_SET_GLOBAL", offset),
             OP_SET_GLOBAL_LONG => self.constant_long_instruction("OP_SET_GLOBAL_LONG", offset),
+            OP_GET_LOCAL => self.byte_instruction("OP_GET_LOCAL", self.chunk, offset),
+            OP_SET_LOCAL => self.byte_instruction("OP_SET_LOCAL", self.chunk, offset),
             _ => {
                 println!("Unknown opcode {}", instruction);
                 offset + 1
@@ -108,6 +110,14 @@ impl<'a> Disassembler<'a> {
         print!("{:<24} {:4} '", name, index);
         print_value(self.chunk.constants[index], self.heap);
         println!("'");
+    }
+
+    /// print a byte instruction such as OP_GET_LOCAL
+    fn byte_instruction(&self, name: &str, chunk: &Chunk, offset: usize) -> usize {
+        let slot = chunk.code[offset + 1];
+        println!("{:<24} {:4}", name, slot);
+
+        return offset + 2;
     }
 }
 

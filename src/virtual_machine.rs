@@ -160,6 +160,16 @@ impl VM {
                         return Err(RuntimeError);
                     }
                 }
+                OP_GET_LOCAL => {
+                    let slot = self.read_byte(chunk) as usize;
+                    let value = self.stack.peek_at(slot);
+                    self.push(value, chunk)?;
+                }
+                OP_SET_LOCAL => {
+                    let slot = self.read_byte(chunk) as usize;
+                    let value = self.stack.peek(0);
+                    self.stack.set_at(slot, value);
+                }
                 _ => {
                     eprintln!("Unsupported opcode: {instruction}");
                     return Err(InterpretResult::RuntimeError);

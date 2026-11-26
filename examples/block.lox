@@ -1,0 +1,12 @@
+var thing = 42;
+print thing;
+
+{
+	var thing = thing;
+	print thing;
+	thing = "another thing";
+	print thing;
+}
+
+print thing;
+

@@ -85,17 +85,15 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
     /// Compiles reading from or assigning to a named variable.
     pub(super) fn compile_named_variable(&mut self, name: Token, can_assign: bool) {
-        let arg = self.resolve_local_variable(name);
         let is_assignment = can_assign && self.match_current_token(TokenKind::Equal);
 
-        if arg != -1 {
-            self.compile_local_variable(arg as usize, name, is_assignment);
-        } else {
-            self.compile_global_variable(name, is_assignment);
+        match self.resolve_local_variable(name) {
+            Some(local) => self.compile_local_variable(local, is_assignment),
+            None => self.compile_global_variable(name, is_assignment),
         }
     }
 
-    pub(super) fn compile_local_variable(&mut self, arg: usize, name: Token, is_assignment: bool) {
+    pub(super) fn compile_local_variable(&mut self, arg: usize, is_assignment: bool) {
         if is_assignment {
             self.compile_expression();
             self.emit_set_local(arg);

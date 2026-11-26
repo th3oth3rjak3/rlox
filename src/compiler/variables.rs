@@ -35,7 +35,9 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
         for i in (0..self.current_function().local_count()).rev() {
             let local = self.current_function().local_at(i);
-            if local.depth != -1 && (local.depth as usize) < self.current_function().scope_depth() {
+            if let Some(d) = local.depth
+                && d < self.current_function().scope_depth()
+            {
                 break;
             }
 
@@ -54,31 +56,30 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             return;
         }
 
-        let scope_depth = self.current_function().scope_depth();
-        assert!(
-            scope_depth <= isize::MAX as usize,
-            "scope depth exceeded isize::MAX"
-        );
-
-        let local = Local::new(name, scope_depth as isize);
+        let local = Local::new(name, None);
         self.current_function_mut().add_local(local);
     }
 
-    /// Try to resolve a local variable. Returns -1 if not found.
-    pub(super) fn resolve_local_variable(&self, name: Token) -> isize {
+    /// Try to resolve a local variable.
+    pub(super) fn resolve_local_variable(&mut self, name: Token) -> Option<usize> {
         for i in (0..self.current_function().local_count()).rev() {
             let local = self.current_function().local_at(i);
             if name.lexeme(self.source) == local.name.lexeme(self.source) {
-                return i as isize;
+                if local.depth.is_none() {
+                    self.error("Can't read variable in its own initializer.");
+                }
+                return Some(i);
             }
         }
 
-        return -1;
+        None
     }
 
-    /// Emits bytecode to define a global variable.
-    pub(super) fn emit_define_global(&mut self, global: usize) {
+    /// When local, initializes the variable scope depth. When
+    /// global, emits bytecode to define the global variable.
+    pub(super) fn define_variable(&mut self, global: usize) {
         if self.current_function().scope_depth() > 0 {
+            self.mark_initialized(); // handle initialization of local.
             return;
         }
 
@@ -89,6 +90,15 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             self.emit_byte(OP_DEFINE_GLOBAL_LONG);
             self.emit_wide_bytes(global);
         }
+    }
+
+    /// Marks a local variable as initialized.
+    pub(super) fn mark_initialized(&mut self) {
+        let local_count = self.current_function().local_count();
+        let scope_depth = self.current_function().scope_depth();
+        self.current_function_mut()
+            .local_at_mut(local_count - 1)
+            .depth = Some(scope_depth);
     }
 
     /// Emits bytecode to read a global variable.
@@ -111,5 +121,17 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             self.emit_byte(OP_SET_GLOBAL_LONG);
             self.emit_wide_bytes(global);
         }
+    }
+
+    /// Emits bytecode to read a local variable.
+    pub(super) fn emit_get_local(&mut self, local: usize) {
+        self.emit_byte(OP_GET_LOCAL);
+        self.emit_byte(local as u8);
+    }
+
+    /// Emits bytecode to assign a local variable.
+    pub(super) fn emit_set_local(&mut self, local: usize) {
+        self.emit_byte(OP_SET_LOCAL);
+        self.emit_byte(local as u8);
     }
 }

@@ -32,7 +32,7 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             TokenKind::Semicolon,
             "Expect ';' after variable declaration.",
         );
-        self.emit_define_global(global);
+        self.define_variable(global);
     }
 
     /// Compiles the next statement based on the current token.

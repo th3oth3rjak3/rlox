@@ -79,3 +79,9 @@ pub const OP_SET_GLOBAL: OpCode = 24;
 
 /// Set a global variable with a wide index.
 pub const OP_SET_GLOBAL_LONG: OpCode = 25;
+
+/// Get a local variable.
+pub const OP_GET_LOCAL: OpCode = 26;
+
+/// Set a local variable.
+pub const OP_SET_LOCAL: OpCode = 27;
