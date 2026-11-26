@@ -70,8 +70,8 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
             self.error("Too much code to jump over.");
         }
 
-        self.current_chunk_mut().code[offset] = (jump >> 8) as u8 & 0xFF;
-        self.current_chunk_mut().code[offset + 1] = jump as u8 & 0xFF;
+        self.current_chunk_mut().code[offset] = (jump >> 8) as u8;
+        self.current_chunk_mut().code[offset + 1] = jump as u8;
     }
 
     /// current_chunk takes an immutable borrow to the current
