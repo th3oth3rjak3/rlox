@@ -39,6 +39,8 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
     pub(super) fn compile_statement(&mut self) {
         if self.match_current_token(TokenKind::Print) {
             self.compile_print_statement();
+        } else if self.match_current_token(TokenKind::For) {
+            self.compile_for_statement();
         } else if self.match_current_token(TokenKind::If) {
             self.compile_if_statement();
         } else if self.match_current_token(TokenKind::While) {
@@ -92,6 +94,50 @@ impl<'src, 'heap> Compiler<'src, 'heap> {
 
         self.patch_jump(exit_jump);
         self.emit_byte(OP_POP);
+    }
+
+    /// Compile a for loop statement.
+    pub(super) fn compile_for_statement(&mut self) {
+        self.begin_scope();
+        self.consume_current_token(TokenKind::LeftParen, "Expect '(' after 'for'.");
+        if self.match_current_token(TokenKind::Semicolon) {
+            // No Initializer
+        } else if self.match_current_token(TokenKind::Var) {
+            self.compile_variable_declaration();
+        } else {
+            self.compile_expression_statement();
+        }
+
+        let mut loop_start = self.current_chunk().code.len();
+        let mut exit_jump: Option<usize> = None;
+
+        if !self.match_current_token(TokenKind::Semicolon) {
+            self.compile_expression();
+            self.consume_current_token(TokenKind::Semicolon, "Expect ';' after loop condition.");
+            exit_jump = Some(self.emit_jump(OP_JUMP_IF_FALSE));
+            self.emit_byte(OP_POP); // condition
+        }
+
+        if !self.match_current_token(TokenKind::RightParen) {
+            let body_jump = self.emit_jump(OP_JUMP);
+            let increment_start = self.current_chunk().code.len();
+            self.compile_expression();
+            self.emit_byte(OP_POP);
+            self.consume_current_token(TokenKind::RightParen, "Expect ')' after for clauses");
+
+            self.emit_loop(loop_start);
+            loop_start = increment_start;
+            self.patch_jump(body_jump);
+        }
+
+        self.compile_statement();
+        self.emit_loop(loop_start);
+
+        if let Some(exit) = exit_jump {
+            self.patch_jump(exit);
+            self.emit_byte(OP_POP); // condition
+        }
+        self.end_scope();
     }
 
     /// Compiles an expression statement and discards its resulting value.
